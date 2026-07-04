@@ -16,7 +16,7 @@ final class SemanticImageSearchService {
     private let predictionLock = NSLock()
     private var imageEmbeddingCache: [String: [NamedEmbedding]] = [:]
     private var textEmbeddingCache: [String: [Float]] = [:]
-    private var evidenceCache: [String: Bool] = [:]
+    private var evidenceCache: [String: VisionEvidence] = [:]
 
     private init() {
         let configuration = MLModelConfiguration()
@@ -40,7 +40,7 @@ final class SemanticImageSearchService {
             throw DemoError.resourceUnavailable("MobileCLIP semantic model is not loaded.")
         }
 
-        let query = SemanticPromptBuilder.query(for: slots)
+        let query = SemanticQueryPlanner.query(for: slots)
         guard let positiveEmbeddings = textEmbeddings(for: query.positivePrompts),
               let negativeEmbeddings = textEmbeddings(for: query.negativePrompts),
               !positiveEmbeddings.isEmpty,
@@ -127,7 +127,7 @@ final class SemanticImageSearchService {
               margin >= query.minimumMargin else {
             return nil
         }
-        guard !query.requiresHumanEvidence || await hasHumanEvidence(for: asset) else {
+        guard await passesRequiredEvidence(asset: asset, query: query) else {
             return nil
         }
 
@@ -247,39 +247,73 @@ final class SemanticImageSearchService {
         }
     }
 
-    private func hasHumanEvidence(for asset: PHAsset) async -> Bool {
-        let cacheKey = "human|\(asset.localIdentifier)"
-        if let cached = cachedEvidence(cacheKey) {
+    private func passesRequiredEvidence(asset: PHAsset, query: SemanticQuery) async -> Bool {
+        guard query.requiresHumanEvidence || !query.requiredAnimalLabels.isEmpty else {
+            return true
+        }
+
+        guard let evidence = await visionEvidence(for: asset) else {
+            return false
+        }
+
+        if query.requiresHumanEvidence && !evidence.hasHuman {
+            return false
+        }
+        if !query.requiredAnimalLabels.isEmpty {
+            let matchedAnimal = query.requiredAnimalLabels.contains { required in
+                evidence.animals.contains { animal in
+                    animal.label == required && animal.confidence >= 0.12
+                }
+            }
+            if !matchedAnimal {
+                return false
+            }
+        }
+        return true
+    }
+
+    private func visionEvidence(for asset: PHAsset) async -> VisionEvidence? {
+        if let cached = cachedEvidence(asset.localIdentifier) {
             return cached
         }
         guard let image = await requestImage(asset: asset, needsRegionScan: true),
               let cgImage = image.cgImage else {
-            setCachedEvidence(false, for: cacheKey)
-            return false
+            return nil
         }
 
-        let result = await Task.detached(priority: .utility) {
-            let humanRequest = VNDetectHumanRectanglesRequest()
-            let faceRequest = VNDetectFaceRectanglesRequest()
-            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-            do {
-                try handler.perform([humanRequest, faceRequest])
-            } catch {
-                return false
-            }
+        let humanRequest = VNDetectHumanRectanglesRequest()
+        let faceRequest = VNDetectFaceRectanglesRequest()
+        let animalRequest = VNRecognizeAnimalsRequest()
+        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
 
-            let hasHuman = (humanRequest.results ?? []).contains { observation in
-                let area = observation.boundingBox.width * observation.boundingBox.height
-                return observation.confidence >= 0.2 && area >= 0.01
-            }
-            let hasFace = (faceRequest.results ?? []).contains { observation in
-                observation.confidence >= 0.15
-            }
-            return hasHuman || hasFace
-        }.value
+        do {
+            try handler.perform([humanRequest, faceRequest, animalRequest])
+        } catch {
+            return nil
+        }
 
-        setCachedEvidence(result, for: cacheKey)
-        return result
+        let hasHuman = (humanRequest.results ?? []).contains { observation in
+            let area = observation.boundingBox.width * observation.boundingBox.height
+            return observation.confidence >= 0.2 && area >= 0.01
+        }
+        let hasFace = (faceRequest.results ?? []).contains { observation in
+            observation.confidence >= 0.15
+        }
+        var animals: [AnimalVisionEvidence] = []
+        for observation in animalRequest.results ?? [] {
+            for label in observation.labels {
+                animals.append(
+                    AnimalVisionEvidence(
+                        label: label.identifier.lowercased(),
+                        confidence: label.confidence
+                    )
+                )
+            }
+        }
+
+        let evidence = VisionEvidence(hasHuman: hasHuman || hasFace, animals: animals)
+        setCachedEvidence(evidence, for: asset.localIdentifier)
+        return evidence
     }
 
     private func pixelBuffers(from image: UIImage, needsRegionScan: Bool) -> [NamedPixelBuffer]? {
@@ -407,20 +441,20 @@ final class SemanticImageSearchService {
         cacheLock.unlock()
     }
 
-    private func cachedEvidence(_ key: String) -> Bool? {
+    private func cachedEvidence(_ key: String) -> VisionEvidence? {
         cacheLock.lock()
         defer { cacheLock.unlock() }
         return evidenceCache[key]
     }
 
-    private func setCachedEvidence(_ value: Bool, for key: String) {
+    private func setCachedEvidence(_ value: VisionEvidence, for key: String) {
         cacheLock.lock()
         evidenceCache[key] = value
         cacheLock.unlock()
     }
 }
 
-private enum SemanticPromptBuilder {
+private enum SemanticQueryPlanner {
     private static let conceptMap: [(String, [String])] = [
         ("美女", ["woman", "female person", "portrait photo of a woman", "person"]),
         ("女生", ["woman", "female person", "portrait photo of a woman", "person"]),
@@ -428,7 +462,11 @@ private enum SemanticPromptBuilder {
         ("女人", ["woman", "female person", "portrait photo of a woman", "person"]),
         ("女孩", ["girl", "female person", "portrait photo of a girl", "person"]),
         ("小姐姐", ["woman", "female person", "portrait photo of a woman", "person"]),
+        ("小猫", ["cat", "kitten", "domestic cat", "small cat"]),
+        ("猫咪", ["cat", "kitten", "domestic cat", "small cat"]),
         ("猫", ["cat", "kitten", "domestic cat", "small cat"]),
+        ("小狗", ["dog", "puppy", "domestic dog"]),
+        ("狗狗", ["dog", "puppy", "domestic dog"]),
         ("狗", ["dog", "puppy", "domestic dog"]),
         ("宠物", ["pet animal"]),
         ("动物", ["animal"]),
@@ -544,7 +582,7 @@ private enum SemanticPromptBuilder {
         }
 
         let visualObjectTerms = [
-            "美女", "女生", "女性", "女人", "女孩", "小姐姐", "猫", "狗", "宠物", "动物", "鸟", "鱼", "人", "人物", "小孩", "车", "自行车",
+            "美女", "女生", "女性", "女人", "女孩", "小姐姐", "小猫", "猫咪", "猫", "小狗", "狗狗", "狗", "宠物", "动物", "鸟", "鱼", "人", "人物", "小孩", "车", "自行车",
             "电脑", "手机", "花", "树", "食物", "饭", "咖啡", "蛋糕", "衣服", "鞋", "包",
             "背景", "角落", "旁边"
         ]
@@ -552,11 +590,12 @@ private enum SemanticPromptBuilder {
 
         let wantsScreenshot = queryText.contains("截图") || queryText.contains("截屏") || lowerQuery.contains("screenshot")
         let wantsLandscape = queryText.contains("风景") || queryText.contains("旅行") || lowerQuery.contains("landscape")
-        let wantsAnimal = ["猫", "狗", "宠物", "动物"].contains { queryText.contains($0) }
+        let wantsAnimal = ["小猫", "猫咪", "猫", "小狗", "狗狗", "狗", "宠物", "动物"].contains { queryText.contains($0) }
         let wantsHuman = [
             "美女", "女生", "女性", "女人", "女孩", "小姐姐", "人像", "自拍", "合影", "人物", "人"
         ].contains { queryText.contains($0) } ||
             ["woman", "girl", "person", "people", "portrait", "selfie"].contains { lowerQuery.contains($0) }
+        let requiredAnimalLabels = animalEvidenceLabels(for: queryText, lowerQuery: lowerQuery)
 
         let negativePrompts = negativePrompts(
             concepts: concepts,
@@ -590,9 +629,23 @@ private enum SemanticPromptBuilder {
             negativePrompts: negativePrompts,
             needsRegionScan: needsRegionScan,
             requiresHumanEvidence: wantsHuman,
+            requiredAnimalLabels: requiredAnimalLabels,
             minimumSimilarity: minimumSimilarity,
             minimumMargin: minimumMargin
         )
+    }
+
+    private static func animalEvidenceLabels(for queryText: String, lowerQuery: String) -> [String] {
+        var labels: [String] = []
+        if ["小猫", "猫咪", "猫"].contains(where: queryText.contains) ||
+            ["cat", "kitten"].contains(where: lowerQuery.contains) {
+            labels.append("cat")
+        }
+        if ["小狗", "狗狗", "狗"].contains(where: queryText.contains) ||
+            ["dog", "puppy"].contains(where: lowerQuery.contains) {
+            labels.append("dog")
+        }
+        return orderedUnique(labels)
     }
 
     private static func negativePrompts(
@@ -685,6 +738,7 @@ private struct SemanticQuery {
     let negativePrompts: [String]
     let needsRegionScan: Bool
     let requiresHumanEvidence: Bool
+    let requiredAnimalLabels: [String]
     let minimumSimilarity: Float
     let minimumMargin: Float
 
@@ -706,6 +760,16 @@ private struct NamedPixelBuffer {
 private struct SemanticMatchScore {
     let value: Float
     let cropName: String
+}
+
+private struct VisionEvidence {
+    let hasHuman: Bool
+    let animals: [AnimalVisionEvidence]
+}
+
+private struct AnimalVisionEvidence {
+    let label: String
+    let confidence: Float
 }
 
 private enum RegionAnchor: String {
