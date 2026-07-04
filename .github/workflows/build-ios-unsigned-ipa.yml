@@ -1,0 +1,32 @@
+name: Build unsigned iOS IPA
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "ios_app/**"
+      - "scripts/ci/build_unsigned_ipa.sh"
+      - ".github/workflows/build-ios-unsigned-ipa.yml"
+
+jobs:
+  build:
+    name: Build unsigned IPA on macOS
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Build unsigned IPA
+        run: bash scripts/ci/build_unsigned_ipa.sh
+
+      - name: Upload unsigned IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: IntentResourceDemo-unsigned-ipa
+          path: build/ipa/IntentResourceDemo-unsigned.ipa
+          if-no-files-found: error

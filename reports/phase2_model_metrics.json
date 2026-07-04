@@ -1,0 +1,1044 @@
+{
+  "training": {
+    "train_rows": 8800,
+    "intent_epochs": 10,
+    "tag_epochs": 12,
+    "seed": 20260704,
+    "datasets": {
+      "positive_train": 4000,
+      "positive_valid": 1000,
+      "positive_cold_start_test": 1000,
+      "with_unknown_train": 4800,
+      "with_unknown_valid": 1200,
+      "with_unknown_cold_start_test": 1200
+    }
+  },
+  "artifact": {
+    "model_path": "models\\tiny_intent_slot_model.json",
+    "model_size_bytes": 1138480,
+    "model_size_mb": 1.085739,
+    "train_time_ms": 85974.7865,
+    "load_time_ms": 125.4953,
+    "peak_load_memory_kb": 14223.65
+  },
+  "evaluation": {
+    "positive_train": {
+      "rows": 4000,
+      "intent_accuracy": 1.0,
+      "slot_frame_exact": 0.99325,
+      "normalized_exact": 0.99325,
+      "complete_output_exact": 0.99325,
+      "share_content_exact": 0.994,
+      "share_target_exact": 0.99925,
+      "search_keyword_exact": 0.9975,
+      "latency_ms_avg": 0.964319,
+      "latency_ms_p95": 1.3231,
+      "by_intent": {
+        "contact": {
+          "rows": 800,
+          "intent_accuracy": 1.0,
+          "slot_frame_exact": 1.0,
+          "normalized_exact": 1.0,
+          "complete_output_exact": 1.0,
+          "share_content_exact": 1.0,
+          "share_target_exact": 1.0,
+          "search_keyword_exact": 1.0
+        },
+        "file": {
+          "rows": 800,
+          "intent_accuracy": 1.0,
+          "slot_frame_exact": 0.9975,
+          "normalized_exact": 0.9975,
+          "complete_output_exact": 0.9975,
+          "share_content_exact": 0.9975,
+          "share_target_exact": 1.0,
+          "search_keyword_exact": 1.0
+        },
+        "folder": {
+          "rows": 800,
+          "intent_accuracy": 1.0,
+          "slot_frame_exact": 0.995,
+          "normalized_exact": 0.995,
+          "complete_output_exact": 0.995,
+          "share_content_exact": 0.995,
+          "share_target_exact": 1.0,
+          "search_keyword_exact": 1.0
+        },
+        "photo": {
+          "rows": 800,
+          "intent_accuracy": 1.0,
+          "slot_frame_exact": 0.97875,
+          "normalized_exact": 0.97875,
+          "complete_output_exact": 0.97875,
+          "share_content_exact": 0.98125,
+          "share_target_exact": 0.9975,
+          "search_keyword_exact": 0.99
+        },
+        "video": {
+          "rows": 800,
+          "intent_accuracy": 1.0,
+          "slot_frame_exact": 0.995,
+          "normalized_exact": 0.995,
+          "complete_output_exact": 0.995,
+          "share_content_exact": 0.99625,
+          "share_target_exact": 0.99875,
+          "search_keyword_exact": 0.9975
+        }
+      }
+    },
+    "positive_valid": {
+      "rows": 1000,
+      "intent_accuracy": 1.0,
+      "slot_frame_exact": 0.986,
+      "normalized_exact": 0.986,
+      "complete_output_exact": 0.986,
+      "share_content_exact": 0.992,
+      "share_target_exact": 0.994,
+      "search_keyword_exact": 0.992,
+      "latency_ms_avg": 1.021658,
+      "latency_ms_p95": 1.4308,
+      "by_intent": {
+        "contact": {
+          "rows": 200,
+          "intent_accuracy": 1.0,
+          "slot_frame_exact": 1.0,
+          "normalized_exact": 1.0,
+          "complete_output_exact": 1.0,
+          "share_content_exact": 1.0,
+          "share_target_exact": 1.0,
+          "search_keyword_exact": 1.0
+        },
+        "file": {
+          "rows": 200,
+          "intent_accuracy": 1.0,
+          "slot_frame_exact": 0.97,
+          "normalized_exact": 0.97,
+          "complete_output_exact": 0.97,
+          "share_content_exact": 0.995,
+          "share_target_exact": 0.975,
+          "search_keyword_exact": 0.975
+        },
+        "folder": {
+          "rows": 200,
+          "intent_accuracy": 1.0,
+          "slot_frame_exact": 0.995,
+          "normalized_exact": 0.995,
+          "complete_output_exact": 0.995,
+          "share_content_exact": 0.995,
+          "share_target_exact": 1.0,
+          "search_keyword_exact": 1.0
+        },
+        "photo": {
+          "rows": 200,
+          "intent_accuracy": 1.0,
+          "slot_frame_exact": 0.975,
+          "normalized_exact": 0.975,
+          "complete_output_exact": 0.975,
+          "share_content_exact": 0.975,
+          "share_target_exact": 1.0,
+          "search_keyword_exact": 0.985
+        },
+        "video": {
+          "rows": 200,
+          "intent_accuracy": 1.0,
+          "slot_frame_exact": 0.99,
+          "normalized_exact": 0.99,
+          "complete_output_exact": 0.99,
+          "share_content_exact": 0.995,
+          "share_target_exact": 0.995,
+          "search_keyword_exact": 1.0
+        }
+      }
+    },
+    "positive_cold_start_test": {
+      "rows": 1000,
+      "intent_accuracy": 0.998,
+      "slot_frame_exact": 0.966,
+      "normalized_exact": 0.965,
+      "complete_output_exact": 0.965,
+      "share_content_exact": 0.993,
+      "share_target_exact": 0.971,
+      "search_keyword_exact": 0.975,
+      "latency_ms_avg": 1.020151,
+      "latency_ms_p95": 1.3926,
+      "by_intent": {
+        "contact": {
+          "rows": 200,
+          "intent_accuracy": 1.0,
+          "slot_frame_exact": 0.985,
+          "normalized_exact": 0.985,
+          "complete_output_exact": 0.985,
+          "share_content_exact": 1.0,
+          "share_target_exact": 0.985,
+          "search_keyword_exact": 0.995
+        },
+        "file": {
+          "rows": 200,
+          "intent_accuracy": 1.0,
+          "slot_frame_exact": 0.965,
+          "normalized_exact": 0.965,
+          "complete_output_exact": 0.965,
+          "share_content_exact": 0.995,
+          "share_target_exact": 0.965,
+          "search_keyword_exact": 0.97
+        },
+        "folder": {
+          "rows": 200,
+          "intent_accuracy": 1.0,
+          "slot_frame_exact": 0.975,
+          "normalized_exact": 0.975,
+          "complete_output_exact": 0.975,
+          "share_content_exact": 0.995,
+          "share_target_exact": 0.98,
+          "search_keyword_exact": 0.985
+        },
+        "photo": {
+          "rows": 200,
+          "intent_accuracy": 0.995,
+          "slot_frame_exact": 0.955,
+          "normalized_exact": 0.95,
+          "complete_output_exact": 0.95,
+          "share_content_exact": 0.985,
+          "share_target_exact": 0.97,
+          "search_keyword_exact": 0.96
+        },
+        "video": {
+          "rows": 200,
+          "intent_accuracy": 0.995,
+          "slot_frame_exact": 0.95,
+          "normalized_exact": 0.95,
+          "complete_output_exact": 0.95,
+          "share_content_exact": 0.99,
+          "share_target_exact": 0.955,
+          "search_keyword_exact": 0.965
+        }
+      }
+    },
+    "with_unknown_train": {
+      "rows": 4800,
+      "intent_accuracy": 1.0,
+      "slot_frame_exact": 0.986458,
+      "normalized_exact": 0.986458,
+      "complete_output_exact": 0.986458,
+      "share_content_exact": 0.9875,
+      "share_target_exact": 0.996,
+      "search_keyword_exact": 0.9905,
+      "latency_ms_avg": 0.779142,
+      "latency_ms_p95": 1.099,
+      "by_intent": {
+        "contact": {
+          "rows": 800,
+          "intent_accuracy": 1.0,
+          "slot_frame_exact": 0.99125,
+          "normalized_exact": 0.99125,
+          "complete_output_exact": 0.99125,
+          "share_content_exact": 0.99375,
+          "share_target_exact": 0.9975,
+          "search_keyword_exact": 0.99375
+        },
+        "file": {
+          "rows": 800,
+          "intent_accuracy": 1.0,
+          "slot_frame_exact": 0.98625,
+          "normalized_exact": 0.98625,
+          "complete_output_exact": 0.98625,
+          "share_content_exact": 0.99,
+          "share_target_exact": 0.99625,
+          "search_keyword_exact": 0.99125
+        },
+        "folder": {
+          "rows": 800,
+          "intent_accuracy": 1.0,
+          "slot_frame_exact": 0.99375,
+          "normalized_exact": 0.99375,
+          "complete_output_exact": 0.99375,
+          "share_content_exact": 0.9975,
+          "share_target_exact": 0.99625,
+          "search_keyword_exact": 0.99875
+        },
+        "photo": {
+          "rows": 800,
+          "intent_accuracy": 1.0,
+          "slot_frame_exact": 0.96375,
+          "normalized_exact": 0.96375,
+          "complete_output_exact": 0.96375,
+          "share_content_exact": 0.96625,
+          "share_target_exact": 0.99625,
+          "search_keyword_exact": 0.97375
+        },
+        "unknown": {
+          "rows": 800,
+          "intent_accuracy": 1.0,
+          "slot_frame_exact": 1.0,
+          "normalized_exact": 1.0,
+          "complete_output_exact": 1.0,
+          "share_content_exact": 0.0,
+          "share_target_exact": 0.0,
+          "search_keyword_exact": 0.0
+        },
+        "video": {
+          "rows": 800,
+          "intent_accuracy": 1.0,
+          "slot_frame_exact": 0.98375,
+          "normalized_exact": 0.98375,
+          "complete_output_exact": 0.98375,
+          "share_content_exact": 0.99,
+          "share_target_exact": 0.99375,
+          "search_keyword_exact": 0.995
+        }
+      }
+    },
+    "with_unknown_valid": {
+      "rows": 1200,
+      "intent_accuracy": 0.984167,
+      "slot_frame_exact": 0.951667,
+      "normalized_exact": 0.943333,
+      "complete_output_exact": 0.94,
+      "share_content_exact": 0.971,
+      "share_target_exact": 0.974,
+      "search_keyword_exact": 0.97,
+      "latency_ms_avg": 0.757568,
+      "latency_ms_p95": 1.0386,
+      "by_intent": {
+        "contact": {
+          "rows": 200,
+          "intent_accuracy": 0.995,
+          "slot_frame_exact": 0.96,
+          "normalized_exact": 0.955,
+          "complete_output_exact": 0.955,
+          "share_content_exact": 0.97,
+          "share_target_exact": 0.99,
+          "search_keyword_exact": 0.965
+        },
+        "file": {
+          "rows": 200,
+          "intent_accuracy": 0.99,
+          "slot_frame_exact": 0.94,
+          "normalized_exact": 0.935,
+          "complete_output_exact": 0.935,
+          "share_content_exact": 0.97,
+          "share_target_exact": 0.97,
+          "search_keyword_exact": 0.97
+        },
+        "folder": {
+          "rows": 200,
+          "intent_accuracy": 0.99,
+          "slot_frame_exact": 0.955,
+          "normalized_exact": 0.945,
+          "complete_output_exact": 0.945,
+          "share_content_exact": 0.98,
+          "share_target_exact": 0.975,
+          "search_keyword_exact": 0.985
+        },
+        "photo": {
+          "rows": 200,
+          "intent_accuracy": 0.985,
+          "slot_frame_exact": 0.915,
+          "normalized_exact": 0.9,
+          "complete_output_exact": 0.9,
+          "share_content_exact": 0.95,
+          "share_target_exact": 0.96,
+          "search_keyword_exact": 0.955
+        },
+        "unknown": {
+          "rows": 200,
+          "intent_accuracy": 0.965,
+          "slot_frame_exact": 0.98,
+          "normalized_exact": 0.985,
+          "complete_output_exact": 0.965,
+          "share_content_exact": 0.0,
+          "share_target_exact": 0.0,
+          "search_keyword_exact": 0.0
+        },
+        "video": {
+          "rows": 200,
+          "intent_accuracy": 0.98,
+          "slot_frame_exact": 0.96,
+          "normalized_exact": 0.94,
+          "complete_output_exact": 0.94,
+          "share_content_exact": 0.985,
+          "share_target_exact": 0.975,
+          "search_keyword_exact": 0.975
+        }
+      }
+    },
+    "with_unknown_cold_start_test": {
+      "rows": 1200,
+      "intent_accuracy": 0.9825,
+      "slot_frame_exact": 0.926667,
+      "normalized_exact": 0.920833,
+      "complete_output_exact": 0.915833,
+      "share_content_exact": 0.928,
+      "share_target_exact": 0.974,
+      "search_keyword_exact": 0.94,
+      "latency_ms_avg": 0.785621,
+      "latency_ms_p95": 1.1023,
+      "by_intent": {
+        "contact": {
+          "rows": 200,
+          "intent_accuracy": 1.0,
+          "slot_frame_exact": 0.915,
+          "normalized_exact": 0.915,
+          "complete_output_exact": 0.915,
+          "share_content_exact": 0.925,
+          "share_target_exact": 0.97,
+          "search_keyword_exact": 0.93
+        },
+        "file": {
+          "rows": 200,
+          "intent_accuracy": 0.995,
+          "slot_frame_exact": 0.915,
+          "normalized_exact": 0.91,
+          "complete_output_exact": 0.91,
+          "share_content_exact": 0.945,
+          "share_target_exact": 0.955,
+          "search_keyword_exact": 0.955
+        },
+        "folder": {
+          "rows": 200,
+          "intent_accuracy": 0.985,
+          "slot_frame_exact": 0.96,
+          "normalized_exact": 0.945,
+          "complete_output_exact": 0.945,
+          "share_content_exact": 0.965,
+          "share_target_exact": 0.985,
+          "search_keyword_exact": 0.96
+        },
+        "photo": {
+          "rows": 200,
+          "intent_accuracy": 0.97,
+          "slot_frame_exact": 0.865,
+          "normalized_exact": 0.84,
+          "complete_output_exact": 0.84,
+          "share_content_exact": 0.875,
+          "share_target_exact": 0.975,
+          "search_keyword_exact": 0.915
+        },
+        "unknown": {
+          "rows": 200,
+          "intent_accuracy": 0.97,
+          "slot_frame_exact": 0.975,
+          "normalized_exact": 1.0,
+          "complete_output_exact": 0.97,
+          "share_content_exact": 0.0,
+          "share_target_exact": 0.0,
+          "search_keyword_exact": 0.0
+        },
+        "video": {
+          "rows": 200,
+          "intent_accuracy": 0.975,
+          "slot_frame_exact": 0.93,
+          "normalized_exact": 0.915,
+          "complete_output_exact": 0.915,
+          "share_content_exact": 0.93,
+          "share_target_exact": 0.985,
+          "search_keyword_exact": 0.94
+        }
+      }
+    }
+  },
+  "failures": {
+    "with_unknown_valid": [
+      {
+        "input": "给所有人都发一份",
+        "true": {
+          "intent": "unknown",
+          "slots": {}
+        },
+        "pred": {
+          "intent": "file",
+          "slots": {
+            "share_target": "都"
+          }
+        }
+      },
+      {
+        "input": "帮我把那个文件移动到哥哥的文件夹里",
+        "true": {
+          "intent": "unknown",
+          "slots": {}
+        },
+        "pred": {
+          "intent": "folder",
+          "slots": {
+            "share_content": "那个文件",
+            "share_target": "哥哥的文件夹里"
+          }
+        }
+      },
+      {
+        "input": "把下载的文件夹传给卧室平板",
+        "true": {
+          "intent": "folder",
+          "slots": {
+            "share_content": "下载的文件夹",
+            "share_target": "卧室平板"
+          }
+        },
+        "pred": {
+          "intent": "folder",
+          "slots": {
+            "share_target": "卧室平板"
+          }
+        }
+      },
+      {
+        "input": "把相册里的最新照片分享给家里电脑",
+        "true": {
+          "intent": "photo",
+          "slots": {
+            "share_content": "相册里的最新照片",
+            "share_target": "家里电脑"
+          }
+        },
+        "pred": {
+          "intent": "photo",
+          "slots": {
+            "share_target": "家里电脑"
+          }
+        }
+      },
+      {
+        "input": "把相册里的最新照片分享给班主任",
+        "true": {
+          "intent": "photo",
+          "slots": {
+            "share_content": "相册里的最新照片",
+            "share_target": "班主任"
+          }
+        },
+        "pred": {
+          "intent": "photo",
+          "slots": {
+            "share_target": "班主任"
+          }
+        }
+      },
+      {
+        "input": "把下载的文件传给前台小刘",
+        "true": {
+          "intent": "file",
+          "slots": {
+            "share_content": "下载的文件",
+            "share_target": "前台小刘"
+          }
+        },
+        "pred": {
+          "intent": "file",
+          "slots": {
+            "share_target": "前台小刘"
+          }
+        }
+      },
+      {
+        "input": "把下载的文件传给黄老师",
+        "true": {
+          "intent": "file",
+          "slots": {
+            "share_content": "下载的文件",
+            "share_target": "黄老师"
+          }
+        },
+        "pred": {
+          "intent": "file",
+          "slots": {
+            "share_target": "黄老师"
+          }
+        }
+      },
+      {
+        "input": "明天再传这个文件给王瑞冰的项目群吧",
+        "true": {
+          "intent": "unknown",
+          "slots": {}
+        },
+        "pred": {
+          "intent": "file",
+          "slots": {
+            "share_content": "明天再传这个文件",
+            "share_target": "王瑞冰的项目群"
+          }
+        }
+      },
+      {
+        "input": "把这个压缩包重命名一下",
+        "true": {
+          "intent": "unknown",
+          "slots": {}
+        },
+        "pred": {
+          "intent": "file",
+          "slots": {}
+        }
+      },
+      {
+        "input": "把下载的文件传给周律师",
+        "true": {
+          "intent": "file",
+          "slots": {
+            "share_content": "下载的文件",
+            "share_target": "周律师"
+          }
+        },
+        "pred": {
+          "intent": "file",
+          "slots": {
+            "share_target": "周律师"
+          }
+        }
+      },
+      {
+        "input": "今天天气不错",
+        "true": {
+          "intent": "unknown",
+          "slots": {}
+        },
+        "pred": {
+          "intent": "photo",
+          "slots": {}
+        }
+      },
+      {
+        "input": "把这个文件夹发给何医生",
+        "true": {
+          "intent": "folder",
+          "slots": {
+            "share_content": "这个文件夹",
+            "share_target": "何医生"
+          }
+        },
+        "pred": {
+          "intent": "folder",
+          "slots": {
+            "share_target": "何医生"
+          }
+        }
+      },
+      {
+        "input": "给离线文件夹发个问候",
+        "true": {
+          "intent": "unknown",
+          "slots": {}
+        },
+        "pred": {
+          "intent": "folder",
+          "slots": {}
+        }
+      },
+      {
+        "input": "等一会儿再分享这个视频给班主任",
+        "true": {
+          "intent": "unknown",
+          "slots": {}
+        },
+        "pred": {
+          "intent": "video",
+          "slots": {
+            "share_content": "这个视频",
+            "share_target": "班主任"
+          }
+        }
+      },
+      {
+        "input": "下载好的文件发给小王",
+        "true": {
+          "intent": "file",
+          "slots": {
+            "share_content": "下载好的文件",
+            "share_target": "小王"
+          }
+        },
+        "pred": {
+          "intent": "file",
+          "slots": {
+            "share_content": "下载好的文件"
+          }
+        }
+      },
+      {
+        "input": "把相册里的最新照片分享给这台设备",
+        "true": {
+          "intent": "photo",
+          "slots": {
+            "share_content": "相册里的最新照片",
+            "share_target": "这台设备"
+          }
+        },
+        "pred": {
+          "intent": "photo",
+          "slots": {
+            "share_target": "这台设备"
+          }
+        }
+      },
+      {
+        "input": "老客户名片直接发给阿明",
+        "true": {
+          "intent": "contact",
+          "slots": {
+            "share_content": "老客户名片",
+            "share_target": "阿明"
+          }
+        },
+        "pred": {
+          "intent": "contact",
+          "slots": {
+            "share_target": "阿明"
+          }
+        }
+      },
+      {
+        "input": "爷爷，把学习资料文件夹转给我",
+        "true": {
+          "intent": "folder",
+          "slots": {
+            "share_content": "学习资料文件夹",
+            "share_target": "我"
+          }
+        },
+        "pred": {
+          "intent": "folder",
+          "slots": {
+            "share_content": "学习资料文件夹",
+            "share_target": "爷爷"
+          }
+        }
+      },
+      {
+        "input": "孙会计的档案柜直接发给小何",
+        "true": {
+          "intent": "folder",
+          "slots": {
+            "share_content": "孙会计的档案柜",
+            "share_target": "小何"
+          }
+        },
+        "pred": {
+          "intent": "file",
+          "slots": {
+            "share_content": "孙会计的档案柜",
+            "share_target": "小何"
+          }
+        }
+      },
+      {
+        "input": "爷爷，把这张旧照片转给他",
+        "true": {
+          "intent": "photo",
+          "slots": {
+            "share_content": "这张旧照片",
+            "share_target": "他"
+          }
+        },
+        "pred": {
+          "intent": "photo",
+          "slots": {
+            "share_content": "这张旧照片",
+            "share_target": "爷爷"
+          }
+        }
+      }
+    ],
+    "with_unknown_cold_start_test": [
+      {
+        "input": "把压缩包发给客户经理",
+        "true": {
+          "intent": "file",
+          "slots": {
+            "share_content": "压缩包",
+            "share_target": "客户经理"
+          }
+        },
+        "pred": {
+          "intent": "file",
+          "slots": {
+            "share_content": "压缩包"
+          }
+        }
+      },
+      {
+        "input": "你能把那个文件传到这台设备吗？",
+        "true": {
+          "intent": "unknown",
+          "slots": {}
+        },
+        "pred": {
+          "intent": "file",
+          "slots": {
+            "share_target": "这台设备吗？"
+          }
+        }
+      },
+      {
+        "input": "存的那张图给上次投屏的电视传过去",
+        "true": {
+          "intent": "photo",
+          "slots": {
+            "share_content": "存的那张图",
+            "share_target": "上次投屏的电视"
+          }
+        },
+        "pred": {
+          "intent": "unknown",
+          "slots": {}
+        }
+      },
+      {
+        "input": "把压缩包发给财务同事",
+        "true": {
+          "intent": "file",
+          "slots": {
+            "share_content": "压缩包",
+            "share_target": "财务同事"
+          }
+        },
+        "pred": {
+          "intent": "file",
+          "slots": {
+            "share_content": "压缩包"
+          }
+        }
+      },
+      {
+        "input": "发条短信给阿明说我会晚点到",
+        "true": {
+          "intent": "unknown",
+          "slots": {}
+        },
+        "pred": {
+          "intent": "file",
+          "slots": {
+            "share_target": "阿明说我会晚点到"
+          }
+        }
+      },
+      {
+        "input": "下载好的文件发给物业管家",
+        "true": {
+          "intent": "file",
+          "slots": {
+            "share_content": "下载好的文件",
+            "share_target": "物业管家"
+          }
+        },
+        "pred": {
+          "intent": "file",
+          "slots": {
+            "share_content": "下载好的文件"
+          }
+        }
+      },
+      {
+        "input": "把相册里的最新照片分享给客户王总",
+        "true": {
+          "intent": "photo",
+          "slots": {
+            "share_content": "相册里的最新照片",
+            "share_target": "客户王总"
+          }
+        },
+        "pred": {
+          "intent": "photo",
+          "slots": {
+            "share_target": "客户王总"
+          }
+        }
+      },
+      {
+        "input": "下载好的文件发给卧室电脑",
+        "true": {
+          "intent": "file",
+          "slots": {
+            "share_content": "下载好的文件",
+            "share_target": "卧室电脑"
+          }
+        },
+        "pred": {
+          "intent": "file",
+          "slots": {
+            "share_content": "下载好的文件"
+          }
+        }
+      },
+      {
+        "input": "帮我把这个文档打印三份",
+        "true": {
+          "intent": "unknown",
+          "slots": {}
+        },
+        "pred": {
+          "intent": "file",
+          "slots": {
+            "share_content": "这个文档"
+          }
+        }
+      },
+      {
+        "input": "把视频压缩了再保存到电脑",
+        "true": {
+          "intent": "unknown",
+          "slots": {}
+        },
+        "pred": {
+          "intent": "video",
+          "slots": {
+            "share_content": "视频压缩了再"
+          }
+        }
+      },
+      {
+        "input": "我把那张照片删了，不用发了。",
+        "true": {
+          "intent": "unknown",
+          "slots": {}
+        },
+        "pred": {
+          "intent": "photo",
+          "slots": {
+            "share_content": "那张照片"
+          }
+        }
+      },
+      {
+        "input": "把下载的文件传给家里那台平板",
+        "true": {
+          "intent": "file",
+          "slots": {
+            "share_content": "下载的文件",
+            "share_target": "家里那台平板"
+          }
+        },
+        "pred": {
+          "intent": "file",
+          "slots": {
+            "share_target": "家里那台平板"
+          }
+        }
+      },
+      {
+        "input": "下载好的文件发给那台备用机",
+        "true": {
+          "intent": "file",
+          "slots": {
+            "share_content": "下载好的文件",
+            "share_target": "那台备用机"
+          }
+        },
+        "pred": {
+          "intent": "file",
+          "slots": {
+            "share_content": "下载好的文件"
+          }
+        }
+      },
+      {
+        "input": "把相册里的最新照片分享给刘师傅",
+        "true": {
+          "intent": "photo",
+          "slots": {
+            "share_content": "相册里的最新照片",
+            "share_target": "刘师傅"
+          }
+        },
+        "pred": {
+          "intent": "photo",
+          "slots": {
+            "share_target": "刘师傅"
+          }
+        }
+      },
+      {
+        "input": "把下载的文件传给技术支持",
+        "true": {
+          "intent": "file",
+          "slots": {
+            "share_content": "下载的文件",
+            "share_target": "技术支持"
+          }
+        },
+        "pred": {
+          "intent": "file",
+          "slots": {
+            "share_target": "技术支持"
+          }
+        }
+      },
+      {
+        "input": "把相册里的最新照片分享给小宝",
+        "true": {
+          "intent": "photo",
+          "slots": {
+            "share_content": "相册里的最新照片",
+            "share_target": "小宝"
+          }
+        },
+        "pred": {
+          "intent": "photo",
+          "slots": {
+            "share_target": "小宝"
+          }
+        }
+      },
+      {
+        "input": "我想把这张图设为壁纸",
+        "true": {
+          "intent": "unknown",
+          "slots": {}
+        },
+        "pred": {
+          "intent": "photo",
+          "slots": {}
+        }
+      },
+      {
+        "input": "老公，把这个目录发过去",
+        "true": {
+          "intent": "folder",
+          "slots": {
+            "share_content": "这个目录",
+            "share_target": "老公"
+          }
+        },
+        "pred": {
+          "intent": "folder",
+          "slots": {
+            "share_content": "这个目录"
+          }
+        }
+      },
+      {
+        "input": "老公，把这个Excel表格发过去",
+        "true": {
+          "intent": "file",
+          "slots": {
+            "share_content": "这个Excel表格",
+            "share_target": "老公"
+          }
+        },
+        "pred": {
+          "intent": "file",
+          "slots": {
+            "share_content": "这个Excel表格"
+          }
+        }
+      },
+      {
+        "input": "妈妈，把这张全家福发给你",
+        "true": {
+          "intent": "photo",
+          "slots": {
+            "share_content": "这张全家福",
+            "share_target": "妈妈"
+          }
+        },
+        "pred": {
+          "intent": "contact",
+          "slots": {
+            "share_content": "这张全家福",
+            "share_target": "妈妈"
+          }
+        }
+      }
+    ]
+  }
+}

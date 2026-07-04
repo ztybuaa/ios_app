@@ -1,0 +1,133 @@
+import json
+import plistlib
+from pathlib import Path
+
+from env_guard import ensure_project_venv
+
+
+ensure_project_venv()
+
+
+ROOT = Path(__file__).resolve().parents[1]
+APP_ROOT = ROOT / "ios_app" / "IntentResourceDemo"
+PROJECT_FILE = ROOT / "ios_app" / "IntentResourceDemo.xcodeproj" / "project.pbxproj"
+SCHEME_FILE = (
+    ROOT
+    / "ios_app"
+    / "IntentResourceDemo.xcodeproj"
+    / "xcshareddata"
+    / "xcschemes"
+    / "IntentResourceDemo.xcscheme"
+)
+GITHUB_WORKFLOW = ROOT / ".github" / "workflows" / "build-ios-unsigned-ipa.yml"
+CI_BUILD_SCRIPT = ROOT / "scripts" / "ci" / "build_unsigned_ipa.sh"
+
+SWIFT_FILES = [
+    "App/DemoError.swift",
+    "App/DemoViewModel.swift",
+    "App/IntentResourceDemoApp.swift",
+    "App/ModelStore.swift",
+    "App/PerformanceMonitor.swift",
+    "NLP/FeatureExtractor.swift",
+    "NLP/LinearClassifier.swift",
+    "NLP/SlotNormalizer.swift",
+    "NLP/TinyIntentSlotModel.swift",
+    "ResourceModules/ContactResourceModule.swift",
+    "ResourceModules/FileFolderResourceModule.swift",
+    "ResourceModules/MediaResourceModule.swift",
+    "ResourceModules/ResourceModels.swift",
+    "ResourceModules/ResourceSearchService.swift",
+    "Views/ContentView.swift",
+    "Views/InferenceView.swift",
+    "Views/MetricRow.swift",
+    "Views/ResourceResultView.swift",
+]
+
+RESOURCE_FILES = [
+    "Resources/tiny_intent_slot_model.json",
+    "Resources/sample_resource_index.json",
+]
+
+
+def require(condition, message):
+    if not condition:
+        raise SystemExit(f"VALIDATION FAILED: {message}")
+
+
+def validate_files():
+    require(PROJECT_FILE.exists(), f"missing {PROJECT_FILE}")
+    require(SCHEME_FILE.exists(), f"missing shared scheme {SCHEME_FILE}")
+    require(GITHUB_WORKFLOW.exists(), f"missing GitHub Actions workflow {GITHUB_WORKFLOW}")
+    require(CI_BUILD_SCRIPT.exists(), f"missing CI build script {CI_BUILD_SCRIPT}")
+    for relative in SWIFT_FILES + RESOURCE_FILES + ["Support/Info.plist"]:
+        require((APP_ROOT / relative).exists(), f"missing app file {relative}")
+
+
+def validate_model():
+    model_path = APP_ROOT / "Resources" / "tiny_intent_slot_model.json"
+    payload = json.loads(model_path.read_text(encoding="utf-8"))
+    for key in ("version", "intent_model", "content_model", "target_model"):
+        require(key in payload, f"model missing key {key}")
+    for key in ("intent_model", "content_model", "target_model"):
+        require("labels" in payload[key], f"{key} missing labels")
+        require("weights" in payload[key], f"{key} missing weights")
+
+
+def validate_resource_index():
+    index_path = APP_ROOT / "Resources" / "sample_resource_index.json"
+    payload = json.loads(index_path.read_text(encoding="utf-8"))
+    require(payload.get("files"), "sample resource index has no files")
+    require(payload.get("folders"), "sample resource index has no folders")
+    for section in ("files", "folders"):
+        for item in payload[section]:
+            for key in ("id", "kind", "title", "path", "summary", "tags"):
+                require(key in item, f"{section} item missing {key}")
+
+
+def validate_info_plist():
+    plist_path = APP_ROOT / "Support" / "Info.plist"
+    with plist_path.open("rb") as f:
+        payload = plistlib.load(f)
+    require("NSContactsUsageDescription" in payload, "Info.plist missing contacts usage description")
+    require("NSPhotoLibraryUsageDescription" in payload, "Info.plist missing photo usage description")
+    require(payload.get("LSRequiresIPhoneOS") is True, "Info.plist should require iPhone OS")
+
+
+def validate_project_references():
+    project_text = PROJECT_FILE.read_text(encoding="utf-8")
+    for relative in SWIFT_FILES + RESOURCE_FILES:
+        name = Path(relative).name
+        require(name in project_text, f"project.pbxproj missing reference to {name}")
+    require("PRODUCT_BUNDLE_IDENTIFIER = com.local.IntentResourceDemo;" in project_text, "bundle id not set")
+    require("CODE_SIGN_STYLE = Automatic;" in project_text, "automatic signing not enabled")
+    require("IPHONEOS_DEPLOYMENT_TARGET = 16.0;" in project_text, "deployment target not set")
+
+
+def validate_github_actions():
+    workflow_text = GITHUB_WORKFLOW.read_text(encoding="utf-8")
+    script_text = CI_BUILD_SCRIPT.read_text(encoding="utf-8")
+    scheme_text = SCHEME_FILE.read_text(encoding="utf-8")
+
+    require("runs-on: macos-15" in workflow_text, "workflow should use macOS runner")
+    require("scripts/ci/build_unsigned_ipa.sh" in workflow_text, "workflow should call IPA build script")
+    require("actions/upload-artifact@v4" in workflow_text, "workflow should upload IPA artifact")
+    require("CODE_SIGNING_ALLOWED=NO" in script_text, "unsigned build should disable code signing")
+    require("IntentResourceDemo-unsigned.ipa" in script_text, "build script should produce unsigned IPA")
+    require("BlueprintName = \"IntentResourceDemo\"" in scheme_text, "shared scheme should reference app target")
+
+
+def main():
+    validate_files()
+    validate_model()
+    validate_resource_index()
+    validate_info_plist()
+    validate_project_references()
+    validate_github_actions()
+    print("iOS project validation passed")
+    print(f"Swift files: {len(SWIFT_FILES)}")
+    print(f"Resource files: {len(RESOURCE_FILES)}")
+    print(f"Project: {PROJECT_FILE}")
+
+
+if __name__ == "__main__":
+    main()

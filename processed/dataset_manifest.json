@@ -1,0 +1,287 @@
+{
+  "source_root": "G:\\first year spring\\华为跨设备\\数据集",
+  "record_count": 13200,
+  "datasets": [
+    {
+      "name": "positive_train",
+      "suite": "positive_only",
+      "split": "train",
+      "source_file": "train_intent_slots(1).json",
+      "rows": 4000,
+      "intent_counts": {
+        "photo": 800,
+        "video": 800,
+        "file": 800,
+        "folder": 800,
+        "contact": 800
+      },
+      "slot_key_counts": {
+        "share_content": 4000,
+        "share_target": 4000
+      },
+      "search_keyword_counts": {
+        "photo": 776,
+        "video": 768,
+        "file": 752,
+        "folder": 792,
+        "contact": 664
+      },
+      "generic_resource_phrase_counts": {
+        "photo": 24,
+        "video": 32,
+        "file": 48,
+        "folder": 8,
+        "contact": 136
+      },
+      "examples": {
+        "photo": "把这张照片发给班主任",
+        "video": "把这个视频发给研发群",
+        "file": "把这个文件发给家里那台电脑",
+        "folder": "把这个文件夹发给技术支持",
+        "contact": "把这个联系人发给phone_6973"
+      }
+    },
+    {
+      "name": "positive_valid",
+      "suite": "positive_only",
+      "split": "valid",
+      "source_file": "valid_intent_slots(1).json",
+      "rows": 1000,
+      "intent_counts": {
+        "photo": 200,
+        "video": 200,
+        "file": 200,
+        "folder": 200,
+        "contact": 200
+      },
+      "slot_key_counts": {
+        "share_content": 1000,
+        "share_target": 1000
+      },
+      "search_keyword_counts": {
+        "photo": 194,
+        "video": 192,
+        "file": 188,
+        "folder": 198,
+        "contact": 166
+      },
+      "generic_resource_phrase_counts": {
+        "photo": 6,
+        "video": 8,
+        "file": 12,
+        "folder": 2,
+        "contact": 34
+      },
+      "examples": {
+        "photo": "把这张照片发给刚连上的设备",
+        "video": "把这个视频发给Galaxy S24",
+        "file": "把这个文件发给phone_2821",
+        "folder": "把这个文件夹发给设备（1738242）",
+        "contact": "把这个联系人发给蓝牙设备"
+      }
+    },
+    {
+      "name": "positive_cold_start_test",
+      "suite": "positive_only",
+      "split": "cold_start_test",
+      "source_file": "cold_start_test_intent_slots(1).json",
+      "rows": 1000,
+      "intent_counts": {
+        "photo": 200,
+        "video": 200,
+        "file": 200,
+        "folder": 200,
+        "contact": 200
+      },
+      "slot_key_counts": {
+        "share_content": 1000,
+        "share_target": 1000
+      },
+      "search_keyword_counts": {
+        "photo": 194,
+        "video": 192,
+        "file": 188,
+        "folder": 198,
+        "contact": 166
+      },
+      "generic_resource_phrase_counts": {
+        "photo": 6,
+        "video": 8,
+        "file": 12,
+        "folder": 2,
+        "contact": 34
+      },
+      "examples": {
+        "photo": "把这张照片发给小石",
+        "video": "把这个视频发给那台备用机",
+        "file": "把这个文件发给2026项目群",
+        "folder": "把这个文件夹发给studio-mac-03",
+        "contact": "把这个联系人发给北区销售群"
+      }
+    },
+    {
+      "name": "with_unknown_train",
+      "suite": "with_unknown",
+      "split": "train",
+      "source_file": "train_intent_slots_with_unknown.json",
+      "rows": 4800,
+      "intent_counts": {
+        "folder": 800,
+        "contact": 800,
+        "file": 800,
+        "photo": 800,
+        "unknown": 800,
+        "video": 800
+      },
+      "slot_key_counts": {
+        "share_content": 4000,
+        "share_target": 4000
+      },
+      "search_keyword_counts": {
+        "folder": 667,
+        "contact": 628,
+        "file": 265,
+        "photo": 394,
+        "video": 354
+      },
+      "generic_resource_phrase_counts": {
+        "file": 535,
+        "photo": 406,
+        "video": 446,
+        "contact": 172,
+        "folder": 133
+      },
+      "examples": {
+        "folder": "帮我把导入模板文件夹传给上次投屏的电视",
+        "contact": "请把课代表联系方式发送给卧室平板",
+        "file": "需要把文件分享给王瑞冰的手机",
+        "photo": "分享部分照片给我的手机",
+        "unknown": "用QQ把旅行视频发给北区销售群怎么操作",
+        "video": "帮我把视频发送给张经理"
+      }
+    },
+    {
+      "name": "with_unknown_valid",
+      "suite": "with_unknown",
+      "split": "valid",
+      "source_file": "valid_intent_slots_with_unknown(1).json",
+      "rows": 1200,
+      "intent_counts": {
+        "unknown": 200,
+        "contact": 200,
+        "video": 200,
+        "photo": 200,
+        "folder": 200,
+        "file": 200
+      },
+      "slot_key_counts": {
+        "share_content": 1000,
+        "share_target": 1000
+      },
+      "search_keyword_counts": {
+        "contact": 147,
+        "video": 94,
+        "folder": 170,
+        "photo": 106,
+        "file": 67
+      },
+      "generic_resource_phrase_counts": {
+        "video": 106,
+        "photo": 94,
+        "contact": 53,
+        "file": 133,
+        "folder": 30
+      },
+      "examples": {
+        "unknown": "给小明打电话",
+        "contact": "给刚发现的设备分享一下李老师的联系方式",
+        "video": "帮我把视频发送给物业管家",
+        "photo": "分享部分照片给孙会计",
+        "folder": "把用户手册文件夹发给那台备用机",
+        "file": "帮我把这个文件丢给小李"
+      }
+    },
+    {
+      "name": "with_unknown_cold_start_test",
+      "suite": "with_unknown",
+      "split": "cold_start_test",
+      "source_file": "cold_start_test_intent_slots_with_unknown.json",
+      "rows": 1200,
+      "intent_counts": {
+        "unknown": 200,
+        "contact": 200,
+        "file": 200,
+        "photo": 200,
+        "video": 200,
+        "folder": 200
+      },
+      "slot_key_counts": {
+        "share_content": 1000,
+        "share_target": 1000
+      },
+      "search_keyword_counts": {
+        "contact": 159,
+        "video": 96,
+        "file": 75,
+        "folder": 176,
+        "photo": 104
+      },
+      "generic_resource_phrase_counts": {
+        "file": 125,
+        "photo": 96,
+        "contact": 41,
+        "video": 104,
+        "folder": 24
+      },
+      "examples": {
+        "unknown": "先别把旅行视频发给唐老师",
+        "contact": "请把微信二维码发送给产品经理",
+        "file": "发送文件给家里那台电脑",
+        "photo": "分享截图给王医生",
+        "video": "给吴主管传个视频过去",
+        "folder": "财务报表文件夹帮我转给孙会计"
+      }
+    }
+  ],
+  "overall": {
+    "rows": 13200,
+    "intent_counts": {
+      "photo": 2400,
+      "video": 2400,
+      "file": 2400,
+      "folder": 2400,
+      "contact": 2400,
+      "unknown": 1200
+    },
+    "slot_key_counts": {
+      "share_content": 12000,
+      "share_target": 12000
+    },
+    "search_keyword_counts": {
+      "photo": 1768,
+      "video": 1696,
+      "file": 1535,
+      "folder": 2201,
+      "contact": 1930
+    },
+    "generic_resource_phrase_counts": {
+      "photo": 632,
+      "video": 704,
+      "file": 865,
+      "folder": 199,
+      "contact": 470
+    }
+  },
+  "normalized_schema": {
+    "intent": "photo | video | file | folder | contact | unknown",
+    "raw_slots": "original parsed slots from output JSON",
+    "normalized_slots": {
+      "resource_type": "canonical resource class label",
+      "resource_phrase": "original share_content",
+      "search_keyword": "resource retrieval keyword, null for generic/current-selection phrases",
+      "target": "original share_target",
+      "target_keyword": "target candidate retrieval keyword",
+      "qualifiers": "time, format, and selection hints extracted from resource_phrase"
+    }
+  }
+}

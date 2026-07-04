@@ -1,0 +1,86 @@
+{
+  "files": [
+    {
+      "id": "file-quote-001",
+      "kind": "file",
+      "title": "华东客户报价单.pdf",
+      "path": "On My iPhone/DemoFiles/华东客户报价单.pdf",
+      "summary": "包含客户报价、折扣、交付周期和付款条款。",
+      "tags": ["报价单", "客户", "PDF", "销售"],
+      "format": "PDF",
+      "updatedAt": "2026-06-20"
+    },
+    {
+      "id": "file-contract-001",
+      "kind": "file",
+      "title": "供应商合同.docx",
+      "path": "On My iPhone/DemoFiles/供应商合同.docx",
+      "summary": "供应商合作合同与法务修订记录。",
+      "tags": ["合同", "供应商", "Word", "法务"],
+      "format": "Word",
+      "updatedAt": "2026-06-18"
+    },
+    {
+      "id": "file-report-001",
+      "kind": "file",
+      "title": "项目进度报告.pptx",
+      "path": "On My iPhone/DemoFiles/项目进度报告.pptx",
+      "summary": "项目里程碑、风险、预算和下一步计划。",
+      "tags": ["项目", "报告", "PPT", "进度"],
+      "format": "PPT",
+      "updatedAt": "2026-06-25"
+    },
+    {
+      "id": "file-insurance-001",
+      "kind": "file",
+      "title": "医保材料清单.xlsx",
+      "path": "On My iPhone/DemoFiles/医保材料清单.xlsx",
+      "summary": "医保报销所需材料、发票和个人信息确认表。",
+      "tags": ["医保", "材料", "Excel", "清单"],
+      "format": "Excel",
+      "updatedAt": "2026-06-10"
+    }
+  ],
+  "folders": [
+    {
+      "id": "folder-project-001",
+      "kind": "folder",
+      "title": "项目资料",
+      "path": "On My iPhone/DemoFolders/项目资料",
+      "summary": "项目计划、会议纪要、进度报告和风险清单。",
+      "tags": ["项目资料", "项目", "资料", "会议纪要"],
+      "format": null,
+      "updatedAt": "2026-06-24"
+    },
+    {
+      "id": "folder-contract-001",
+      "kind": "folder",
+      "title": "合同归档",
+      "path": "On My iPhone/DemoFolders/合同归档",
+      "summary": "客户合同、供应商合同与盖章扫描件。",
+      "tags": ["合同", "归档", "供应商", "客户"],
+      "format": null,
+      "updatedAt": "2026-06-19"
+    },
+    {
+      "id": "folder-photo-backup-001",
+      "kind": "folder",
+      "title": "照片备份",
+      "path": "On My iPhone/DemoFolders/照片备份",
+      "summary": "旅行照片、会议照片、截图和精选图片备份。",
+      "tags": ["照片备份", "照片", "旅行", "截图"],
+      "format": null,
+      "updatedAt": "2026-06-22"
+    },
+    {
+      "id": "folder-template-001",
+      "kind": "folder",
+      "title": "导入模板文件夹",
+      "path": "On My iPhone/DemoFolders/导入模板文件夹",
+      "summary": "CRM 导入模板、字段说明和示例数据。",
+      "tags": ["导入模板", "模板", "CRM", "数据"],
+      "format": null,
+      "updatedAt": "2026-06-17"
+    }
+  ]
+}
