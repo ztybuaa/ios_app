@@ -9,7 +9,7 @@ final class MediaResourceModule {
 
         let fetchOptions = PHFetchOptions()
         fetchOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-        fetchOptions.fetchLimit = max(limit * 4, limit)
+        fetchOptions.fetchLimit = limit
         fetchOptions.predicate = NSPredicate(
             format: "mediaType == %d",
             kind == .video ? PHAssetMediaType.video.rawValue : PHAssetMediaType.image.rawValue
@@ -114,6 +114,17 @@ final class MediaResourceModule {
 
     private func requestImage(asset: PHAsset) async -> UIImage? {
         await withCheckedContinuation { continuation in
+            let resumeLock = NSLock()
+            var didResume = false
+
+            func resumeOnce(_ image: UIImage?) {
+                resumeLock.lock()
+                defer { resumeLock.unlock() }
+                guard !didResume else { return }
+                didResume = true
+                continuation.resume(returning: image)
+            }
+
             let options = PHImageRequestOptions()
             options.deliveryMode = .fastFormat
             options.resizeMode = .fast
@@ -124,8 +135,16 @@ final class MediaResourceModule {
                 targetSize: CGSize(width: 224, height: 224),
                 contentMode: .aspectFill,
                 options: options
-            ) { image, _ in
-                continuation.resume(returning: image)
+            ) { image, info in
+                if let cancelled = info?[PHImageCancelledKey] as? Bool, cancelled {
+                    resumeOnce(nil)
+                    return
+                }
+                if info?[PHImageErrorKey] != nil {
+                    resumeOnce(nil)
+                    return
+                }
+                resumeOnce(image)
             }
         }
     }
