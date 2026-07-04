@@ -12,7 +12,7 @@ struct InferenceDisplay {
 
 @MainActor
 final class DemoViewModel: ObservableObject {
-    @Published var inputText: String = "把小狗图片发给小明"
+    @Published var inputText: String = "把小猫图片发给小明"
     @Published private(set) var inference: InferenceDisplay?
     @Published private(set) var searchResult: ResourceSearchResult?
     @Published private(set) var isRunning = false

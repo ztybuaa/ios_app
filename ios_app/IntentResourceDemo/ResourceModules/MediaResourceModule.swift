@@ -54,25 +54,30 @@ final class MediaResourceModule {
         if slots.searchKeyword == nil && slots.resourcePhrase.isEmpty {
             return resultLimit
         }
-        return max(resultLimit, 120)
+        return max(resultLimit, 300)
     }
 
     private func shouldIncludeCandidate(score: Double, slots: NormalizedSlots) -> Bool {
         if score > 0 {
             return true
         }
-        if slots.searchKeyword == nil && slots.resourcePhrase.isEmpty {
-            return true
+        let keyword = slots.searchKeyword?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let hasSearchTerm = !keyword.isEmpty || !slots.resourcePhrase.isEmpty
+        if hasSearchTerm {
+            return false
         }
         return slots.qualifiers.selectionHint.contains("recent")
     }
 
     private func score(asset: PHAsset, labels: [String], slots: NormalizedSlots) -> Double {
-        let keyword = slots.searchKeyword
-        let keywordAliases = aliases(for: keyword)
+        let keywordAliases = aliases(for: slots)
+        if requiresStrictVisionMatch(slots: slots), !containsAnyAlias(keywordAliases, in: labels) {
+            return 0
+        }
+
         let labelText = labels.joined(separator: " ")
         var score = CandidateScorer.score(
-            keyword: keyword,
+            keyword: slots.searchKeyword,
             phrase: slots.resourcePhrase,
             targetText: labelText,
             tags: [],
@@ -117,7 +122,7 @@ final class MediaResourceModule {
             return labels
         }
         labels.append(contentsOf: await visionLabels(for: cgImage))
-        return Array(Set(labels.map { $0.lowercased() }))
+        return uniqueLowercased(labels)
     }
 
     private func metadataLabels(for asset: PHAsset) -> [String] {
@@ -193,9 +198,18 @@ final class MediaResourceModule {
             do {
                 try handler.perform([animalRequest, classifyRequest])
                 for observation in animalRequest.results ?? [] {
-                    labels.append(contentsOf: observation.labels.map { $0.identifier.lowercased() })
+                    labels.append(
+                        contentsOf: observation.labels
+                            .filter { $0.confidence >= 0.55 }
+                            .map { $0.identifier.lowercased() }
+                    )
                 }
-                labels.append(contentsOf: (classifyRequest.results ?? []).map { $0.identifier.lowercased() })
+                labels.append(
+                    contentsOf: (classifyRequest.results ?? [])
+                        .filter { $0.confidence >= 0.65 }
+                        .prefix(12)
+                        .map { $0.identifier.lowercased() }
+                )
             } catch {
                 return labels
             }
@@ -217,20 +231,67 @@ final class MediaResourceModule {
         return Array(Set([cleaned] + pieces))
     }
 
-    private func containsLabel(_ alias: String, in labels: [String]) -> Bool {
-        let normalizedAlias = alias.lowercased()
-        return labels.contains { label in
-            label.lowercased().contains(normalizedAlias)
+    private func uniqueLowercased(_ labels: [String]) -> [String] {
+        var seen = Set<String>()
+        var result: [String] = []
+        for label in labels {
+            let normalized = label.lowercased()
+            if seen.insert(normalized).inserted {
+                result.append(normalized)
+            }
         }
+        return result
     }
 
-    private func aliases(for keyword: String?) -> [String] {
-        guard let keyword else { return [] }
+    private func containsLabel(_ alias: String, in labels: [String]) -> Bool {
+        let normalizedAlias = alias.lowercased()
+        return labels.contains { labelMatches(alias: normalizedAlias, label: $0) }
+    }
+
+    private func containsAnyAlias(_ aliases: [String], in labels: [String]) -> Bool {
+        aliases.contains { containsLabel($0, in: labels) }
+    }
+
+    private func labelMatches(alias: String, label: String) -> Bool {
+        let normalizedLabel = label.lowercased()
+        if alias.contains(" ") {
+            return normalizedLabel == alias
+        }
+
+        let tokens = normalizedLabel
+            .replacingOccurrences(of: "_", with: " ")
+            .replacingOccurrences(of: "-", with: " ")
+            .replacingOccurrences(of: ",", with: " ")
+            .split(separator: " ")
+            .map(String.init)
+        return tokens.contains(alias)
+    }
+
+    private func requiresStrictVisionMatch(slots: NormalizedSlots) -> Bool {
+        let text = "\(slots.searchKeyword ?? "") \(slots.resourcePhrase)"
+        return text.contains("猫")
+    }
+
+    private func aliases(for slots: NormalizedSlots) -> [String] {
+        let text = "\(slots.searchKeyword ?? "") \(slots.resourcePhrase)"
+        if text.contains("猫") {
+            return [
+                "cat",
+                "kitten",
+                "feline",
+                "tabby",
+                "tabby cat",
+                "tiger cat",
+                "egyptian cat",
+                "persian cat",
+                "siamese cat",
+                "lynx"
+            ]
+        }
+
+        guard let keyword = slots.searchKeyword else { return [] }
         let table: [String: [String]] = [
-            "小狗": ["dog", "puppy", "canine"],
             "狗": ["dog", "puppy", "canine"],
-            "猫": ["cat", "kitten", "feline"],
-            "小猫": ["cat", "kitten", "feline"],
             "人": ["person", "people", "human"],
             "会议": ["meeting", "conference", "presentation"],
             "旅行": ["travel", "landscape", "outdoor"],
