@@ -8,6 +8,7 @@ final class ContactResourceModule {
         try await ensureAccess()
 
         let keys: [CNKeyDescriptor] = [
+            CNContactIdentifierKey as CNKeyDescriptor,
             CNContactGivenNameKey as CNKeyDescriptor,
             CNContactFamilyNameKey as CNKeyDescriptor,
             CNContactNicknameKey as CNKeyDescriptor,
@@ -49,8 +50,7 @@ final class ContactResourceModule {
     }
 
     private func makeCandidate(contact: CNContact, keyword: String) -> ResourceCandidate {
-        let displayName = CNContactFormatter.string(from: contact, style: .fullName)
-            ?? [contact.familyName, contact.givenName].joined()
+        let displayName = displayName(for: contact)
         let phones = contact.phoneNumbers.map { $0.value.stringValue }
         let emails = contact.emailAddresses.map { String($0.value) }
         let searchable = ([displayName, contact.nickname, contact.organizationName] + phones + emails)
@@ -71,5 +71,27 @@ final class ContactResourceModule {
             score: score,
             debugInfo: "matched contact fields: name/nickname/org/phone/email"
         )
+    }
+
+    private func displayName(for contact: CNContact) -> String {
+        let name = [contact.familyName, contact.givenName]
+            .filter { !$0.isEmpty }
+            .joined()
+        if !name.isEmpty {
+            return name
+        }
+        if !contact.nickname.isEmpty {
+            return contact.nickname
+        }
+        if !contact.organizationName.isEmpty {
+            return contact.organizationName
+        }
+        if let phone = contact.phoneNumbers.first?.value.stringValue, !phone.isEmpty {
+            return phone
+        }
+        if let email = contact.emailAddresses.first {
+            return String(email.value)
+        }
+        return ""
     }
 }
