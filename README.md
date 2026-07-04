@@ -1,4 +1,6 @@
-# 端侧资源检索 Demo 数据与训练准备
+﻿# ios_app
+
+Apps that connect iOS and Huawei devices.
 
 本项目从六份 intent/slot 数据开始，目标是支撑后续 iPhone 端侧 Demo App：
 小模型理解自然语言，抽取资源检索槽位，再进入 photo/video/file/folder/contact 候选检索流程。
