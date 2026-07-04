@@ -21,10 +21,10 @@ final class MediaResourceModule {
         for index in 0..<assets.count {
             if Task.isCancelled { break }
             let asset = assets.object(at: index)
-            let labels = await labelsForAsset(asset)
-            let score = score(asset: asset, labels: labels, slots: slots)
+            let vision = await visionResult(for: asset)
+            let score = score(asset: asset, vision: vision, slots: slots)
             if shouldIncludeCandidate(score: score, slots: slots) {
-                candidates.append(makeCandidate(asset: asset, kind: kind, labels: labels, score: score))
+                candidates.append(makeCandidate(asset: asset, kind: kind, vision: vision, score: score))
             }
         }
 
@@ -54,7 +54,7 @@ final class MediaResourceModule {
         if slots.searchKeyword == nil && slots.resourcePhrase.isEmpty {
             return resultLimit
         }
-        return max(resultLimit, 300)
+        return max(resultLimit, 500)
     }
 
     private func shouldIncludeCandidate(score: Double, slots: NormalizedSlots) -> Bool {
@@ -69,13 +69,25 @@ final class MediaResourceModule {
         return slots.qualifiers.selectionHint.contains("recent")
     }
 
-    private func score(asset: PHAsset, labels: [String], slots: NormalizedSlots) -> Double {
-        let keywordAliases = aliases(for: slots)
-        if requiresStrictVisionMatch(slots: slots), !containsAnyAlias(keywordAliases, in: labels) {
-            return 0
+    private func score(asset: PHAsset, vision: AssetVisionResult, slots: NormalizedSlots) -> Double {
+        if let animalQuery = animalQuery(for: slots) {
+            guard let detection = bestAnimalDetection(for: animalQuery, in: vision.animals) else {
+                return 0
+            }
+
+            var score = 8.0 + Double(detection.confidence) * 12.0
+            score += min(detection.area * 20.0, 3.0)
+            if slots.qualifiers.selectionHint.contains("recent") {
+                score += 1.0
+            }
+            if slots.qualifiers.time.contains("今天"), Calendar.current.isDateInToday(asset.creationDate ?? .distantPast) {
+                score += 1.0
+            }
+            return score
         }
 
-        let labelText = labels.joined(separator: " ")
+        let keywordAliases = aliases(for: slots)
+        let labelText = vision.labels.joined(separator: " ")
         var score = CandidateScorer.score(
             keyword: slots.searchKeyword,
             phrase: slots.resourcePhrase,
@@ -84,7 +96,7 @@ final class MediaResourceModule {
             qualifiers: slots.qualifiers
         )
 
-        for alias in keywordAliases where containsLabel(alias, in: labels) {
+        for alias in keywordAliases where containsLabel(alias, in: vision.labels) {
             score += alias.count <= 3 ? 4.0 : 3.0
         }
         if slots.qualifiers.selectionHint.contains("recent") {
@@ -100,7 +112,7 @@ final class MediaResourceModule {
         return score
     }
 
-    private func makeCandidate(asset: PHAsset, kind: CandidateKind, labels: [String], score: Double) -> ResourceCandidate {
+    private func makeCandidate(asset: PHAsset, kind: CandidateKind, vision: AssetVisionResult, score: Double) -> ResourceCandidate {
         let date = asset.creationDate.map { DateFormatter.localizedString(from: $0, dateStyle: .short, timeStyle: .short) } ?? "未知时间"
         let dimensions = "\(asset.pixelWidth)x\(asset.pixelHeight)"
         let title = kind == .video ? "视频 \(date)" : "照片 \(date)"
@@ -110,19 +122,32 @@ final class MediaResourceModule {
             kind: kind,
             title: title,
             subtitle: dimensions,
-            detail: labels.isEmpty ? "无视觉标签" : labels.prefix(8).joined(separator: ", "),
+            detail: detailText(for: vision),
             score: score,
-            debugInfo: "matched Photos metadata + Vision labels; sequential scan"
+            debugInfo: "matched Photos metadata + Vision animal/object detection; sequential scan"
         )
     }
 
-    private func labelsForAsset(_ asset: PHAsset) async -> [String] {
-        var labels = metadataLabels(for: asset)
+    private func detailText(for vision: AssetVisionResult) -> String {
+        let animalText = vision.animals
+            .prefix(6)
+            .map { "\($0.label) \(String(format: "%.2f", $0.confidence))" }
+        let labels = vision.labels.prefix(8)
+        let detail = (animalText + labels).joined(separator: ", ")
+        return detail.isEmpty ? "无视觉标签" : detail
+    }
+
+    private func visionResult(for asset: PHAsset) async -> AssetVisionResult {
+        let metadataLabels = metadataLabels(for: asset)
         guard let image = await requestThumbnail(asset: asset), let cgImage = image.cgImage else {
-            return labels
+            return AssetVisionResult(labels: uniqueLowercased(metadataLabels), animals: [])
         }
-        labels.append(contentsOf: await visionLabels(for: cgImage))
-        return uniqueLowercased(labels)
+
+        let result = await analyzeImage(cgImage)
+        return AssetVisionResult(
+            labels: uniqueLowercased(metadataLabels + result.labels),
+            animals: result.animals
+        )
     }
 
     private func metadataLabels(for asset: PHAsset) -> [String] {
@@ -164,13 +189,13 @@ final class MediaResourceModule {
             }
 
             let options = PHImageRequestOptions()
-            options.deliveryMode = .fastFormat
+            options.deliveryMode = .highQualityFormat
             options.resizeMode = .fast
             options.isNetworkAccessAllowed = false
 
             PHImageManager.default().requestImage(
                 for: asset,
-                targetSize: CGSize(width: 256, height: 256),
+                targetSize: CGSize(width: 1024, height: 1024),
                 contentMode: .aspectFit,
                 options: options
             ) { image, info in
@@ -187,9 +212,10 @@ final class MediaResourceModule {
         }
     }
 
-    private func visionLabels(for cgImage: CGImage) async -> [String] {
+    private func analyzeImage(_ cgImage: CGImage) async -> AssetVisionResult {
         let task = Task.detached(priority: .utility) {
             var labels: [String] = []
+            var animals: [AnimalDetection] = []
 
             let animalRequest = VNRecognizeAnimalsRequest()
             let classifyRequest = VNClassifyImageRequest()
@@ -198,11 +224,18 @@ final class MediaResourceModule {
             do {
                 try handler.perform([animalRequest, classifyRequest])
                 for observation in animalRequest.results ?? [] {
-                    labels.append(
-                        contentsOf: observation.labels
-                            .filter { $0.confidence >= 0.55 }
-                            .map { $0.identifier.lowercased() }
-                    )
+                    let area = Double(observation.boundingBox.width * observation.boundingBox.height)
+                    for label in observation.labels {
+                        let normalized = label.identifier.lowercased()
+                        animals.append(
+                            AnimalDetection(
+                                label: normalized,
+                                confidence: label.confidence,
+                                area: area
+                            )
+                        )
+                        labels.append(normalized)
+                    }
                 }
                 labels.append(
                     contentsOf: (classifyRequest.results ?? [])
@@ -211,10 +244,13 @@ final class MediaResourceModule {
                         .map { $0.identifier.lowercased() }
                 )
             } catch {
-                return labels
+                return AssetVisionResult(labels: labels, animals: animals)
             }
 
-            return labels.flatMap(Self.expandVisionIdentifier)
+            return AssetVisionResult(
+                labels: labels.flatMap(Self.expandVisionIdentifier),
+                animals: animals
+            )
         }
         return await task.value
     }
@@ -243,13 +279,52 @@ final class MediaResourceModule {
         return result
     }
 
+    private func animalQuery(for slots: NormalizedSlots) -> AnimalQuery? {
+        let text = "\(slots.searchKeyword ?? "") \(slots.resourcePhrase)"
+        if text.contains("猫") {
+            return AnimalQuery(
+                aliases: [
+                    "cat",
+                    "kitten",
+                    "feline",
+                    "tabby",
+                    "tabby cat",
+                    "tiger cat",
+                    "egyptian cat",
+                    "persian cat",
+                    "siamese cat",
+                    "lynx"
+                ],
+                minimumConfidence: 0.12
+            )
+        }
+        if text.contains("狗") {
+            return AnimalQuery(
+                aliases: ["dog", "puppy", "canine"],
+                minimumConfidence: 0.18
+            )
+        }
+        return nil
+    }
+
+    private func bestAnimalDetection(for query: AnimalQuery, in detections: [AnimalDetection]) -> AnimalDetection? {
+        detections
+            .filter { detection in
+                detection.confidence >= query.minimumConfidence &&
+                    query.aliases.contains { labelMatches(alias: $0, label: detection.label) }
+            }
+            .sorted { lhs, rhs in
+                if lhs.confidence == rhs.confidence {
+                    return lhs.area > rhs.area
+                }
+                return lhs.confidence > rhs.confidence
+            }
+            .first
+    }
+
     private func containsLabel(_ alias: String, in labels: [String]) -> Bool {
         let normalizedAlias = alias.lowercased()
         return labels.contains { labelMatches(alias: normalizedAlias, label: $0) }
-    }
-
-    private func containsAnyAlias(_ aliases: [String], in labels: [String]) -> Bool {
-        aliases.contains { containsLabel($0, in: labels) }
     }
 
     private func labelMatches(alias: String, label: String) -> Bool {
@@ -267,31 +342,9 @@ final class MediaResourceModule {
         return tokens.contains(alias)
     }
 
-    private func requiresStrictVisionMatch(slots: NormalizedSlots) -> Bool {
-        let text = "\(slots.searchKeyword ?? "") \(slots.resourcePhrase)"
-        return text.contains("猫")
-    }
-
     private func aliases(for slots: NormalizedSlots) -> [String] {
-        let text = "\(slots.searchKeyword ?? "") \(slots.resourcePhrase)"
-        if text.contains("猫") {
-            return [
-                "cat",
-                "kitten",
-                "feline",
-                "tabby",
-                "tabby cat",
-                "tiger cat",
-                "egyptian cat",
-                "persian cat",
-                "siamese cat",
-                "lynx"
-            ]
-        }
-
         guard let keyword = slots.searchKeyword else { return [] }
         let table: [String: [String]] = [
-            "狗": ["dog", "puppy", "canine"],
             "人": ["person", "people", "human"],
             "会议": ["meeting", "conference", "presentation"],
             "旅行": ["travel", "landscape", "outdoor"],
@@ -300,4 +353,20 @@ final class MediaResourceModule {
         ]
         return table[keyword] ?? [keyword.lowercased()]
     }
+}
+
+private struct AssetVisionResult {
+    let labels: [String]
+    let animals: [AnimalDetection]
+}
+
+private struct AnimalDetection {
+    let label: String
+    let confidence: Float
+    let area: Double
+}
+
+private struct AnimalQuery {
+    let aliases: [String]
+    let minimumConfidence: Float
 }
