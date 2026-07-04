@@ -12,7 +12,8 @@ final class SemanticImageSearchService {
     private let imageModel: mobileclip_s0_image?
     private let textModel: mobileclip_s0_text?
     private let cacheLock = NSLock()
-    private var imageEmbeddingCache: [String: [Float]] = [:]
+    private let predictionLock = NSLock()
+    private var imageEmbeddingCache: [String: [NamedEmbedding]] = [:]
     private var textEmbeddingCache: [String: [Float]] = [:]
 
     private init() {
@@ -34,22 +35,24 @@ final class SemanticImageSearchService {
         limit: Int
     ) async throws -> [ResourceCandidate] {
         guard isAvailable else {
-            throw DemoError.resourceUnavailable("MobileCLIP 语义检索模型未加载，无法执行自然语言图片检索。")
+            throw DemoError.resourceUnavailable("MobileCLIP semantic model is not loaded.")
         }
 
-        let prompts = SemanticPromptBuilder.prompts(for: slots)
-        guard !prompts.isEmpty,
-              let textEmbeddings = textEmbeddings(for: prompts),
-              !textEmbeddings.isEmpty else {
-            throw DemoError.resourceUnavailable("MobileCLIP 文本向量生成失败，无法执行语义图片检索。")
+        let query = SemanticPromptBuilder.query(for: slots)
+        guard let positiveEmbeddings = textEmbeddings(for: query.positivePrompts),
+              let negativeEmbeddings = textEmbeddings(for: query.negativePrompts),
+              !positiveEmbeddings.isEmpty,
+              !negativeEmbeddings.isEmpty else {
+            throw DemoError.resourceUnavailable("MobileCLIP text embeddings could not be generated.")
         }
 
         var candidates: [ResourceCandidate] = []
         let scanAssets = Array(assets.prefix(semanticScanLimit(for: slots)))
+        let batchSize = semanticBatchSize(for: query)
 
-        for batchStart in stride(from: 0, to: scanAssets.count, by: semanticBatchSize(for: slots)) {
+        for batchStart in stride(from: 0, to: scanAssets.count, by: batchSize) {
             if Task.isCancelled { break }
-            let batchEnd = min(batchStart + semanticBatchSize(for: slots), scanAssets.count)
+            let batchEnd = min(batchStart + batchSize, scanAssets.count)
             let batch = Array(scanAssets[batchStart..<batchEnd])
 
             await withTaskGroup(of: ResourceCandidate?.self) { group in
@@ -58,9 +61,9 @@ final class SemanticImageSearchService {
                         await self.matchCandidate(
                             asset: asset,
                             kind: kind,
-                            textEmbeddings: textEmbeddings,
-                            prompts: prompts,
-                            threshold: self.semanticThreshold(for: slots)
+                            query: query,
+                            positiveEmbeddings: positiveEmbeddings,
+                            negativeEmbeddings: negativeEmbeddings
                         )
                     }
                 }
@@ -81,50 +84,59 @@ final class SemanticImageSearchService {
 
     private func semanticScanLimit(for slots: NormalizedSlots) -> Int {
         if slots.qualifiers.selectionHint.contains("all") {
-            return 700
+            return 3_000
         }
         if slots.resourcePhrase.contains("最近") || slots.qualifiers.selectionHint.contains("recent") {
-            return 240
+            return 600
         }
-        return 420
+        return 2_000
     }
 
-    private func semanticBatchSize(for slots: NormalizedSlots) -> Int {
-        if slots.qualifiers.selectionHint.contains("all") {
-            return 3
-        }
-        return 4
-    }
-
-    private func semanticThreshold(for slots: NormalizedSlots) -> Float {
-        let text = "\(slots.searchKeyword ?? "") \(slots.resourcePhrase)"
-        if text.contains("猫") || text.contains("狗") {
-            return 0.18
-        }
-        if text.contains("游戏") || text.contains("截图") {
-            return 0.16
-        }
-        return 0.17
+    private func semanticBatchSize(for query: SemanticQuery) -> Int {
+        query.needsRegionScan ? 2 : 3
     }
 
     private func matchCandidate(
         asset: PHAsset,
         kind: CandidateKind,
-        textEmbeddings: [[Float]],
-        prompts: [String],
-        threshold: Float
+        query: SemanticQuery,
+        positiveEmbeddings: [[Float]],
+        negativeEmbeddings: [[Float]]
     ) async -> ResourceCandidate? {
-        guard let imageEmbedding = await imageEmbedding(for: asset) else {
+        guard let imageEmbeddings = await imageEmbeddings(for: asset, query: query),
+              !imageEmbeddings.isEmpty else {
             return nil
         }
 
-        let best = textEmbeddings
-            .map { cosineSimilarity(imageEmbedding, $0) }
-            .max() ?? -1
-        guard best >= threshold else {
+        var bestPositive = SemanticMatchScore(value: -1, cropName: "none")
+        var bestNegative: Float = -1
+
+        for imageEmbedding in imageEmbeddings {
+            let positive = positiveEmbeddings.map { cosineSimilarity(imageEmbedding.values, $0) }.max() ?? -1
+            if positive > bestPositive.value {
+                bestPositive = SemanticMatchScore(value: positive, cropName: imageEmbedding.name)
+            }
+            let negative = negativeEmbeddings.map { cosineSimilarity(imageEmbedding.values, $0) }.max() ?? -1
+            bestNegative = max(bestNegative, negative)
+        }
+
+        let margin = bestPositive.value - bestNegative
+        guard bestPositive.value >= query.minimumSimilarity,
+              margin >= query.minimumMargin else {
             return nil
         }
-        return makeCandidate(asset: asset, kind: kind, score: Double(best), prompts: prompts)
+
+        let score = Double(margin * 1000 + bestPositive.value * 10)
+        return makeCandidate(
+            asset: asset,
+            kind: kind,
+            score: score,
+            positive: bestPositive.value,
+            negative: bestNegative,
+            margin: margin,
+            cropName: bestPositive.cropName,
+            prompts: query.positivePrompts
+        )
     }
 
     private func textEmbeddings(for prompts: [String]) -> [[Float]]? {
@@ -153,6 +165,8 @@ final class SemanticImageSearchService {
             for index in 0..<min(inputIds.count, 77) {
                 inputArray[index] = NSNumber(value: inputIds[index])
             }
+            predictionLock.lock()
+            defer { predictionLock.unlock() }
             let output = try textModel.prediction(text: inputArray).final_emb_1
             return normalized(Array(output.floatValues))
         } catch {
@@ -160,27 +174,37 @@ final class SemanticImageSearchService {
         }
     }
 
-    private func imageEmbedding(for asset: PHAsset) async -> [Float]? {
-        if let cached = cachedImageEmbedding(asset.localIdentifier) {
+    private func imageEmbeddings(for asset: PHAsset, query: SemanticQuery) async -> [NamedEmbedding]? {
+        let cacheKey = "\(asset.localIdentifier)|\(query.embeddingProfile)"
+        if let cached = cachedImageEmbeddings(cacheKey) {
             return cached
         }
-        guard let image = await requestImage(asset: asset),
-              let pixelBuffer = pixelBuffer(from: image),
+        guard let image = await requestImage(asset: asset, needsRegionScan: query.needsRegionScan),
+              let pixelBuffers = pixelBuffers(from: image, needsRegionScan: query.needsRegionScan),
               let imageModel else {
             return nil
         }
 
-        do {
-            let output = try imageModel.prediction(image: pixelBuffer).final_emb_1
-            let embedding = normalized(Array(output.floatValues))
-            setCachedImageEmbedding(embedding, for: asset.localIdentifier)
-            return embedding
-        } catch {
+        var embeddings: [NamedEmbedding] = []
+        for item in pixelBuffers {
+            do {
+                predictionLock.lock()
+                let output = try imageModel.prediction(image: item.buffer).final_emb_1
+                predictionLock.unlock()
+                embeddings.append(NamedEmbedding(name: item.name, values: normalized(Array(output.floatValues))))
+            } catch {
+                predictionLock.unlock()
+            }
+        }
+
+        guard !embeddings.isEmpty else {
             return nil
         }
+        setCachedImageEmbeddings(embeddings, for: cacheKey)
+        return embeddings
     }
 
-    private func requestImage(asset: PHAsset) async -> UIImage? {
+    private func requestImage(asset: PHAsset, needsRegionScan: Bool) async -> UIImage? {
         await withCheckedContinuation { continuation in
             let lock = NSLock()
             var didResume = false
@@ -194,16 +218,20 @@ final class SemanticImageSearchService {
             }
 
             let options = PHImageRequestOptions()
-            options.deliveryMode = .fastFormat
+            options.deliveryMode = needsRegionScan ? .opportunistic : .fastFormat
             options.resizeMode = .fast
             options.isNetworkAccessAllowed = false
 
+            let side = needsRegionScan ? 900 : 512
             PHImageManager.default().requestImage(
                 for: asset,
-                targetSize: CGSize(width: 256, height: 256),
+                targetSize: CGSize(width: side, height: side),
                 contentMode: .aspectFit,
                 options: options
             ) { image, info in
+                if let degraded = info?[PHImageResultIsDegradedKey] as? Bool, degraded, needsRegionScan {
+                    return
+                }
                 if let cancelled = info?[PHImageCancelledKey] as? Bool, cancelled {
                     resumeOnce(nil)
                     return
@@ -217,11 +245,41 @@ final class SemanticImageSearchService {
         }
     }
 
-    private func pixelBuffer(from image: UIImage) -> CVPixelBuffer? {
-        guard var ciImage = CIImage(image: image)?.cropToSquare()?.resize(size: CGSize(width: 256, height: 256)) else {
+    private func pixelBuffers(from image: UIImage, needsRegionScan: Bool) -> [NamedPixelBuffer]? {
+        guard let ciImage = CIImage(image: image) else {
             return nil
         }
-        ciImage = ciImage.transformed(by: CGAffineTransform(translationX: -ciImage.extent.origin.x, y: -ciImage.extent.origin.y))
+
+        var views: [(String, CIImage)] = []
+        if let full = ciImage.fitIntoSquare(size: CGSize(width: 256, height: 256)) {
+            views.append(("full", full))
+        }
+        if let center = ciImage.cropToSquare(at: .center)?.resize(size: CGSize(width: 256, height: 256)) {
+            views.append(("center", center))
+        }
+        if needsRegionScan {
+            for anchor in RegionAnchor.cornerAnchors {
+                if let crop = ciImage.cropToSquare(at: anchor)?.resize(size: CGSize(width: 256, height: 256)) {
+                    views.append((anchor.rawValue, crop))
+                }
+            }
+        }
+
+        var result: [NamedPixelBuffer] = []
+        var seen = Set<String>()
+        for view in views where seen.insert(view.0).inserted {
+            guard let buffer = pixelBuffer(from: view.1) else {
+                continue
+            }
+            result.append(NamedPixelBuffer(name: view.0, buffer: buffer))
+        }
+        return result
+    }
+
+    private func pixelBuffer(from image: CIImage) -> CVPixelBuffer? {
+        let translated = image.transformed(
+            by: CGAffineTransform(translationX: -image.extent.origin.x, y: -image.extent.origin.y)
+        )
 
         var buffer: CVPixelBuffer?
         CVPixelBufferCreate(
@@ -235,24 +293,41 @@ final class SemanticImageSearchService {
         guard let buffer else {
             return nil
         }
-        ciContext.render(ciImage, to: buffer)
+        ciContext.render(translated, to: buffer)
         return buffer
     }
 
-    private func makeCandidate(asset: PHAsset, kind: CandidateKind, score: Double, prompts: [String]) -> ResourceCandidate {
+    private func makeCandidate(
+        asset: PHAsset,
+        kind: CandidateKind,
+        score: Double,
+        positive: Float,
+        negative: Float,
+        margin: Float,
+        cropName: String,
+        prompts: [String]
+    ) -> ResourceCandidate {
         let date = asset.creationDate.map { DateFormatter.localizedString(from: $0, dateStyle: .short, timeStyle: .short) } ?? "未知时间"
         let dimensions = "\(asset.pixelWidth)x\(asset.pixelHeight)"
         let title = kind == .video ? "视频 \(date)" : "照片 \(date)"
         let promptPreview = prompts.prefix(4).joined(separator: " / ")
+        let detail = String(
+            format: "semantic margin %.3f, positive %.3f, negative %.3f, view %@, prompts: %@",
+            Double(margin),
+            Double(positive),
+            Double(negative),
+            cropName,
+            promptPreview
+        )
 
         return ResourceCandidate(
             id: asset.localIdentifier,
             kind: kind,
             title: title,
             subtitle: dimensions,
-            detail: "semantic prompts: \(promptPreview)",
-            score: score * 100,
-            debugInfo: "matched MobileCLIP semantic similarity"
+            detail: detail,
+            score: score,
+            debugInfo: "matched calibrated MobileCLIP semantic retrieval"
         )
     }
 
@@ -271,13 +346,13 @@ final class SemanticImageSearchService {
         return values.map { $0 / norm }
     }
 
-    private func cachedImageEmbedding(_ key: String) -> [Float]? {
+    private func cachedImageEmbeddings(_ key: String) -> [NamedEmbedding]? {
         cacheLock.lock()
         defer { cacheLock.unlock() }
         return imageEmbeddingCache[key]
     }
 
-    private func setCachedImageEmbedding(_ value: [Float], for key: String) {
+    private func setCachedImageEmbeddings(_ value: [NamedEmbedding], for key: String) {
         cacheLock.lock()
         imageEmbeddingCache[key] = value
         cacheLock.unlock()
@@ -298,8 +373,8 @@ final class SemanticImageSearchService {
 
 private enum SemanticPromptBuilder {
     private static let conceptMap: [(String, [String])] = [
-        ("猫", ["cat", "kitten", "domestic cat"]),
-        ("狗", ["dog", "puppy"]),
+        ("猫", ["cat", "kitten", "domestic cat", "small cat"]),
+        ("狗", ["dog", "puppy", "domestic dog"]),
         ("宠物", ["pet animal"]),
         ("动物", ["animal"]),
         ("鸟", ["bird"]),
@@ -314,7 +389,7 @@ private enum SemanticPromptBuilder {
         ("山", ["mountain"]),
         ("河", ["river"]),
         ("湖", ["lake"]),
-        ("风景", ["landscape", "scenery"]),
+        ("风景", ["landscape", "scenery", "nature scene", "outdoor landscape"]),
         ("旅行", ["travel photo"]),
         ("街景", ["street scene"]),
         ("夜景", ["night scene"]),
@@ -327,7 +402,7 @@ private enum SemanticPromptBuilder {
         ("人物", ["person"]),
         ("人", ["person"]),
         ("游戏截图", ["video game screenshot", "gameplay screen"]),
-        ("游戏", ["video game", "gameplay"]),
+        ("游戏", ["video game", "gameplay", "game interface"]),
         ("截图", ["screenshot", "phone screen capture"]),
         ("截屏", ["screenshot", "phone screen capture"]),
         ("聊天", ["chat screenshot", "messaging app screen"]),
@@ -367,56 +442,135 @@ private enum SemanticPromptBuilder {
         ("白色", ["white"])
     ]
 
-    static func prompts(for slots: NormalizedSlots) -> [String] {
+    static func query(for slots: NormalizedSlots) -> SemanticQuery {
         let phrase = slots.resourcePhrase.trimmingCharacters(in: .whitespacesAndNewlines)
         let keyword = slots.searchKeyword?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let query = orderedUnique([keyword, phrase]).joined(separator: " ")
-        let lowerQuery = query.lowercased()
+        let queryText = orderedUnique([keyword, phrase]).joined(separator: " ")
+        let lowerQuery = queryText.lowercased()
 
         var concepts: [String] = []
-        for (source, translations) in conceptMap where query.contains(source) {
+        for (source, translations) in conceptMap where queryText.contains(source) {
             concepts.append(contentsOf: translations)
         }
-
         concepts.append(contentsOf: englishTerms(from: lowerQuery))
         concepts = orderedUnique(concepts)
 
-        var prompts: [String] = []
+        var positivePrompts: [String] = []
         if concepts.isEmpty {
-            prompts.append(query)
-            prompts.append("an image matching the user request")
-            prompts.append("a photo related to the query")
+            positivePrompts.append(queryText)
+            positivePrompts.append("an image matching the user request")
+            positivePrompts.append("a photo related to the query")
         } else {
             let combined = concepts.prefix(4).joined(separator: ", ")
-            prompts.append("an image containing \(combined)")
-            prompts.append("a photo containing \(combined)")
-            prompts.append("\(combined) visible in the image")
-
+            positivePrompts.append("an image containing \(combined)")
+            positivePrompts.append("a photo containing \(combined)")
+            positivePrompts.append("\(combined) visible in the image")
             for concept in concepts.prefix(8) {
-                prompts.append("a photo containing \(concept)")
-                prompts.append("\(concept) visible in the image")
+                positivePrompts.append("a photo containing \(concept)")
+                positivePrompts.append("\(concept) visible in the image")
             }
         }
 
-        if query.contains("截图") || query.contains("截屏") || lowerQuery.contains("screenshot") {
-            prompts.append("a screenshot matching \(concepts.first ?? "the query")")
-            prompts.append("a phone screen capture with \(concepts.prefix(3).joined(separator: ", "))")
+        if queryText.contains("截图") || queryText.contains("截屏") || lowerQuery.contains("screenshot") {
+            positivePrompts.append("a screenshot matching \(concepts.first ?? "the query")")
+            positivePrompts.append("a phone screen capture with \(concepts.prefix(3).joined(separator: ", "))")
         }
 
-        if query.contains("背景") || query.contains("角落") || query.contains("旁边") {
+        if queryText.contains("背景") || queryText.contains("角落") || queryText.contains("旁边") {
             for concept in concepts.prefix(4) {
-                prompts.append("\(concept) in the background")
-                prompts.append("a small \(concept) visible in the image")
+                positivePrompts.append("\(concept) in the background")
+                positivePrompts.append("a small \(concept) visible in the image")
             }
         }
 
         if !keyword.isEmpty {
-            prompts.append(keyword)
+            positivePrompts.append(keyword)
         }
         if !phrase.isEmpty {
-            prompts.append(phrase)
+            positivePrompts.append(phrase)
         }
-        return orderedUnique(prompts.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })
+
+        let visualObjectTerms = [
+            "猫", "狗", "宠物", "动物", "鸟", "鱼", "人", "人物", "小孩", "车", "自行车",
+            "电脑", "手机", "花", "树", "食物", "饭", "咖啡", "蛋糕", "衣服", "鞋", "包",
+            "背景", "角落", "旁边"
+        ]
+        let needsRegionScan = visualObjectTerms.contains { queryText.contains($0) }
+
+        let wantsScreenshot = queryText.contains("截图") || queryText.contains("截屏") || lowerQuery.contains("screenshot")
+        let wantsLandscape = queryText.contains("风景") || queryText.contains("旅行") || lowerQuery.contains("landscape")
+        let wantsAnimal = ["猫", "狗", "宠物", "动物"].contains { queryText.contains($0) }
+
+        let negativePrompts = negativePrompts(
+            concepts: concepts,
+            wantsScreenshot: wantsScreenshot,
+            wantsLandscape: wantsLandscape,
+            wantsAnimal: wantsAnimal
+        )
+
+        let minimumSimilarity: Float
+        let minimumMargin: Float
+        if wantsAnimal {
+            minimumSimilarity = 0.205
+            minimumMargin = 0.022
+        } else if wantsLandscape {
+            minimumSimilarity = 0.195
+            minimumMargin = 0.018
+        } else if wantsScreenshot {
+            minimumSimilarity = 0.19
+            minimumMargin = 0.016
+        } else {
+            minimumSimilarity = 0.195
+            minimumMargin = 0.018
+        }
+
+        return SemanticQuery(
+            positivePrompts: orderedUnique(positivePrompts),
+            negativePrompts: negativePrompts,
+            needsRegionScan: needsRegionScan,
+            minimumSimilarity: minimumSimilarity,
+            minimumMargin: minimumMargin
+        )
+    }
+
+    private static func negativePrompts(
+        concepts: [String],
+        wantsScreenshot: Bool,
+        wantsLandscape: Bool,
+        wantsAnimal: Bool
+    ) -> [String] {
+        var prompts = [
+            "an unrelated photo",
+            "a random photo",
+            "a generic image",
+            "a blurry photo",
+            "a photo without \(concepts.first ?? "the requested subject")"
+        ]
+
+        if wantsAnimal {
+            prompts.append(contentsOf: [
+                "a landscape photo without animals",
+                "a screenshot without animals",
+                "a photo of buildings without animals",
+                "a person photo without animals"
+            ])
+        }
+        if wantsLandscape {
+            prompts.append(contentsOf: [
+                "an indoor photo",
+                "a screenshot",
+                "a close up portrait",
+                "a document photo"
+            ])
+        }
+        if wantsScreenshot {
+            prompts.append(contentsOf: [
+                "a camera photo",
+                "a natural landscape photo",
+                "a portrait photo"
+            ])
+        }
+        return orderedUnique(prompts)
     }
 
     private static func englishTerms(from text: String) -> [String] {
@@ -445,13 +599,88 @@ private enum SemanticPromptBuilder {
     }
 }
 
+private struct SemanticQuery {
+    let positivePrompts: [String]
+    let negativePrompts: [String]
+    let needsRegionScan: Bool
+    let minimumSimilarity: Float
+    let minimumMargin: Float
+
+    var embeddingProfile: String {
+        needsRegionScan ? "regions-v2" : "full-v2"
+    }
+}
+
+private struct NamedEmbedding {
+    let name: String
+    let values: [Float]
+}
+
+private struct NamedPixelBuffer {
+    let name: String
+    let buffer: CVPixelBuffer
+}
+
+private struct SemanticMatchScore {
+    let value: Float
+    let cropName: String
+}
+
+private enum RegionAnchor: String {
+    case center
+    case topLeft = "top-left"
+    case topRight = "top-right"
+    case bottomLeft = "bottom-left"
+    case bottomRight = "bottom-right"
+
+    static let cornerAnchors: [RegionAnchor] = [.topLeft, .topRight, .bottomLeft, .bottomRight]
+}
+
 private extension CIImage {
-    func cropToSquare() -> CIImage? {
+    func cropToSquare(at anchor: RegionAnchor) -> CIImage? {
         let size = min(extent.width, extent.height)
-        let x = round((extent.width - size) / 2)
-        let y = round((extent.height - size) / 2)
+        let x: CGFloat
+        let y: CGFloat
+
+        switch anchor {
+        case .center:
+            x = round((extent.width - size) / 2)
+            y = round((extent.height - size) / 2)
+        case .topLeft:
+            x = 0
+            y = max(0, extent.height - size)
+        case .topRight:
+            x = max(0, extent.width - size)
+            y = max(0, extent.height - size)
+        case .bottomLeft:
+            x = 0
+            y = 0
+        case .bottomRight:
+            x = max(0, extent.width - size)
+            y = 0
+        }
+
         let rect = CGRect(x: x, y: y, width: size, height: size)
         return cropped(to: rect).transformed(by: CGAffineTransform(translationX: -x, y: -y))
+    }
+
+    func fitIntoSquare(size targetSize: CGSize) -> CIImage? {
+        guard extent.width > 0, extent.height > 0 else {
+            return nil
+        }
+
+        let scale = min(targetSize.width / extent.width, targetSize.height / extent.height)
+        let scaledWidth = extent.width * scale
+        let scaledHeight = extent.height * scale
+        let x = (targetSize.width - scaledWidth) / 2
+        let y = (targetSize.height - scaledHeight) / 2
+        let scaled = transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+            .transformed(by: CGAffineTransform(translationX: x, y: y))
+
+        let background = CIImage(color: CIColor(red: 0.5, green: 0.5, blue: 0.5))
+            .cropped(to: CGRect(origin: .zero, size: targetSize))
+        return scaled.composited(over: background)
+            .cropped(to: CGRect(origin: .zero, size: targetSize))
     }
 
     func resize(size: CGSize) -> CIImage? {

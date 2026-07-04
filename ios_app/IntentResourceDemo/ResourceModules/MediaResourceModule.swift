@@ -10,7 +10,7 @@ final class MediaResourceModule {
         let plan = MediaQueryPlan(slots: slots)
         let fetchOptions = PHFetchOptions()
         fetchOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-        fetchOptions.fetchLimit = scanLimit(for: plan, resultLimit: limit)
+        fetchOptions.fetchLimit = mediaFetchLimit(kind: kind, plan: plan, resultLimit: limit)
         fetchOptions.predicate = NSPredicate(
             format: "mediaType == %d",
             kind == .video ? PHAssetMediaType.video.rawValue : PHAssetMediaType.image.rawValue
@@ -67,6 +67,16 @@ final class MediaResourceModule {
             return resultLimit
         }
         return plan.needsFineVisualSearch ? max(resultLimit, 500) : max(resultLimit, 240)
+    }
+
+    private func mediaFetchLimit(kind: CandidateKind, plan: MediaQueryPlan, resultLimit: Int) -> Int {
+        if kind == .photo && plan.hasSearchTerm {
+            if plan.wantsRecent {
+                return 600
+            }
+            return 2_500
+        }
+        return scanLimit(for: plan, resultLimit: resultLimit)
     }
 
     private func shouldIncludeCandidate(score: Double, plan: MediaQueryPlan) -> Bool {
