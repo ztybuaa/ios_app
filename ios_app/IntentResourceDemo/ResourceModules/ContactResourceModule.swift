@@ -35,7 +35,7 @@ final class ContactResourceModule {
     private func ensureAccess() async throws {
         let status = CNContactStore.authorizationStatus(for: .contacts)
         switch status {
-        case .authorized:
+        case .authorized, .limited:
             return
         case .notDetermined:
             let granted = try await store.requestAccess(for: .contacts)

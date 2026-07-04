@@ -17,7 +17,7 @@ final class DemoViewModel: ObservableObject {
     @Published private(set) var searchResult: ResourceSearchResult?
     @Published private(set) var isRunning = false
     @Published private(set) var message: String?
-    @Published private(set) var runStage: String = UserDefaults.standard.string(forKey: Self.runStageKey) ?? "尚未运行"
+    @Published private(set) var runStage: String
 
     private let modelStore: ModelStore
     private let searchService = ResourceSearchService()
@@ -25,6 +25,7 @@ final class DemoViewModel: ObservableObject {
 
     init(modelStore: ModelStore) {
         self.modelStore = modelStore
+        self.runStage = UserDefaults.standard.string(forKey: DemoViewModel.runStageKey) ?? "尚未运行"
     }
 
     func analyze() {
