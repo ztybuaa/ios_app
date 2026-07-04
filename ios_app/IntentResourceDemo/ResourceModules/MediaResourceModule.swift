@@ -17,11 +17,22 @@ final class MediaResourceModule {
         )
 
         let assets = PHAsset.fetchAssets(with: fetchOptions)
+        let assetList = (0..<assets.count).map { assets.object(at: $0) }
+        if kind == .photo,
+           plan.hasSearchTerm {
+            let semanticCandidates = try await SemanticImageSearchService.shared.search(
+                assets: assetList,
+                kind: kind,
+                slots: slots,
+                limit: limit
+            )
+            return semanticCandidates
+        }
+
         var candidates: [ResourceCandidate] = []
 
-        for index in 0..<assets.count {
+        for asset in assetList {
             if Task.isCancelled { break }
-            let asset = assets.object(at: index)
             let vision = await visionResult(for: asset, plan: plan)
             let score = score(asset: asset, vision: vision, plan: plan)
             if shouldIncludeCandidate(score: score, plan: plan) {

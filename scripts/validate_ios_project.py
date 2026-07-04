@@ -32,11 +32,15 @@ SWIFT_FILES = [
     "NLP/LinearClassifier.swift",
     "NLP/SlotNormalizer.swift",
     "NLP/TinyIntentSlotModel.swift",
+    "NLP/Tokenizer/CLIPTokenizer.swift",
+    "NLP/Tokenizer/GPT2ByteEncoder.swift",
+    "NLP/Tokenizer/Utils.swift",
     "ResourceModules/ContactResourceModule.swift",
     "ResourceModules/FileFolderResourceModule.swift",
     "ResourceModules/MediaResourceModule.swift",
     "ResourceModules/ResourceModels.swift",
     "ResourceModules/ResourceSearchService.swift",
+    "ResourceModules/SemanticImageSearchService.swift",
     "Views/ContentView.swift",
     "Views/InferenceView.swift",
     "Views/MetricRow.swift",
@@ -46,6 +50,17 @@ SWIFT_FILES = [
 RESOURCE_FILES = [
     "Resources/tiny_intent_slot_model.json",
     "Resources/sample_resource_index.json",
+    "Resources/clip-vocab.json",
+    "Resources/clip-merges.txt",
+]
+
+MOBILECLIP_FILES = [
+    "Resources/MobileCLIP/mobileclip_s0_image.mlpackage/Manifest.json",
+    "Resources/MobileCLIP/mobileclip_s0_image.mlpackage/Data/com.apple.CoreML/model.mlmodel",
+    "Resources/MobileCLIP/mobileclip_s0_image.mlpackage/Data/com.apple.CoreML/weights/weight.bin",
+    "Resources/MobileCLIP/mobileclip_s0_text.mlpackage/Manifest.json",
+    "Resources/MobileCLIP/mobileclip_s0_text.mlpackage/Data/com.apple.CoreML/model.mlmodel",
+    "Resources/MobileCLIP/mobileclip_s0_text.mlpackage/Data/com.apple.CoreML/weights/weight.bin",
 ]
 
 
@@ -59,7 +74,7 @@ def validate_files():
     require(SCHEME_FILE.exists(), f"missing shared scheme {SCHEME_FILE}")
     require(GITHUB_WORKFLOW.exists(), f"missing GitHub Actions workflow {GITHUB_WORKFLOW}")
     require(CI_BUILD_SCRIPT.exists(), f"missing CI build script {CI_BUILD_SCRIPT}")
-    for relative in SWIFT_FILES + RESOURCE_FILES + ["Support/Info.plist"]:
+    for relative in SWIFT_FILES + RESOURCE_FILES + MOBILECLIP_FILES + ["Support/Info.plist"]:
         require((APP_ROOT / relative).exists(), f"missing app file {relative}")
 
 
@@ -98,6 +113,9 @@ def validate_project_references():
     for relative in SWIFT_FILES + RESOURCE_FILES:
         name = Path(relative).name
         require(name in project_text, f"project.pbxproj missing reference to {name}")
+    for package_name in ("mobileclip_s0_image.mlpackage", "mobileclip_s0_text.mlpackage"):
+        require(package_name in project_text, f"project.pbxproj missing reference to {package_name}")
+        require(f"{package_name} in Sources" in project_text, f"{package_name} should be in Sources for Core ML codegen")
     require("PRODUCT_BUNDLE_IDENTIFIER = com.local.IntentResourceDemo;" in project_text, "bundle id not set")
     require("CODE_SIGN_STYLE = Automatic;" in project_text, "automatic signing not enabled")
     require("IPHONEOS_DEPLOYMENT_TARGET = 16.0;" in project_text, "deployment target not set")
