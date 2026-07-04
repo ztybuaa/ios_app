@@ -1,5 +1,7 @@
 import Foundation
 import Photos
+import UIKit
+import Vision
 
 final class MediaResourceModule {
     func search(kind: CandidateKind, slots: NormalizedSlots, limit: Int = 12) async throws -> [ResourceCandidate] {
@@ -7,7 +9,7 @@ final class MediaResourceModule {
 
         let fetchOptions = PHFetchOptions()
         fetchOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-        fetchOptions.fetchLimit = limit
+        fetchOptions.fetchLimit = scanLimit(for: slots, resultLimit: limit)
         fetchOptions.predicate = NSPredicate(
             format: "mediaType == %d",
             kind == .video ? PHAssetMediaType.video.rawValue : PHAssetMediaType.image.rawValue
@@ -17,10 +19,11 @@ final class MediaResourceModule {
         var candidates: [ResourceCandidate] = []
 
         for index in 0..<assets.count {
+            if Task.isCancelled { break }
             let asset = assets.object(at: index)
-            let labels = labelsForAsset(asset)
+            let labels = await labelsForAsset(asset)
             let score = score(asset: asset, labels: labels, slots: slots)
-            if score > 0 || slots.searchKeyword == nil || slots.qualifiers.selectionHint.contains("recent") || candidates.count < limit {
+            if shouldIncludeCandidate(score: score, slots: slots) {
                 candidates.append(makeCandidate(asset: asset, kind: kind, labels: labels, score: score))
             }
         }
@@ -47,6 +50,23 @@ final class MediaResourceModule {
         }
     }
 
+    private func scanLimit(for slots: NormalizedSlots, resultLimit: Int) -> Int {
+        if slots.searchKeyword == nil && slots.resourcePhrase.isEmpty {
+            return resultLimit
+        }
+        return max(resultLimit, 120)
+    }
+
+    private func shouldIncludeCandidate(score: Double, slots: NormalizedSlots) -> Bool {
+        if score > 0 {
+            return true
+        }
+        if slots.searchKeyword == nil && slots.resourcePhrase.isEmpty {
+            return true
+        }
+        return slots.qualifiers.selectionHint.contains("recent")
+    }
+
     private func score(asset: PHAsset, labels: [String], slots: NormalizedSlots) -> Double {
         let keyword = slots.searchKeyword
         let keywordAliases = aliases(for: keyword)
@@ -55,10 +75,13 @@ final class MediaResourceModule {
             keyword: keyword,
             phrase: slots.resourcePhrase,
             targetText: labelText,
-            tags: keywordAliases,
+            tags: [],
             qualifiers: slots.qualifiers
         )
 
+        for alias in keywordAliases where containsLabel(alias, in: labels) {
+            score += alias.count <= 3 ? 4.0 : 3.0
+        }
         if slots.qualifiers.selectionHint.contains("recent") {
             score += 1.0
         }
@@ -67,9 +90,6 @@ final class MediaResourceModule {
         }
         if slots.resourcePhrase.contains("截图"), asset.mediaSubtypes.contains(.photoScreenshot) {
             score += 3.0
-        }
-        if labels.contains(where: keywordAliases.contains) {
-            score += 2.0
         }
 
         return score
@@ -85,13 +105,22 @@ final class MediaResourceModule {
             kind: kind,
             title: title,
             subtitle: dimensions,
-            detail: labels.isEmpty ? "无视觉标签" : labels.prefix(5).joined(separator: ", "),
+            detail: labels.isEmpty ? "无视觉标签" : labels.prefix(8).joined(separator: ", "),
             score: score,
-            debugInfo: "matched Photos metadata; Vision labels disabled in stability build"
+            debugInfo: "matched Photos metadata + Vision labels; sequential scan"
         )
     }
 
-    private func labelsForAsset(_ asset: PHAsset) -> [String] {
+    private func labelsForAsset(_ asset: PHAsset) async -> [String] {
+        var labels = metadataLabels(for: asset)
+        guard let image = await requestThumbnail(asset: asset), let cgImage = image.cgImage else {
+            return labels
+        }
+        labels.append(contentsOf: await visionLabels(for: cgImage))
+        return Array(Set(labels.map { $0.lowercased() }))
+    }
+
+    private func metadataLabels(for asset: PHAsset) -> [String] {
         var labels: [String] = []
         if asset.mediaSubtypes.contains(.photoScreenshot) {
             labels.append("screenshot")
@@ -116,18 +145,97 @@ final class MediaResourceModule {
         return labels
     }
 
+    private func requestThumbnail(asset: PHAsset) async -> UIImage? {
+        await withCheckedContinuation { continuation in
+            let lock = NSLock()
+            var didResume = false
+
+            func resumeOnce(_ image: UIImage?) {
+                lock.lock()
+                defer { lock.unlock() }
+                guard !didResume else { return }
+                didResume = true
+                continuation.resume(returning: image)
+            }
+
+            let options = PHImageRequestOptions()
+            options.deliveryMode = .fastFormat
+            options.resizeMode = .fast
+            options.isNetworkAccessAllowed = false
+
+            PHImageManager.default().requestImage(
+                for: asset,
+                targetSize: CGSize(width: 256, height: 256),
+                contentMode: .aspectFit,
+                options: options
+            ) { image, info in
+                if let cancelled = info?[PHImageCancelledKey] as? Bool, cancelled {
+                    resumeOnce(nil)
+                    return
+                }
+                if info?[PHImageErrorKey] != nil {
+                    resumeOnce(nil)
+                    return
+                }
+                resumeOnce(image)
+            }
+        }
+    }
+
+    private func visionLabels(for cgImage: CGImage) async -> [String] {
+        await Task.detached(priority: .utility) {
+            var labels: [String] = []
+
+            let animalRequest = VNRecognizeAnimalsRequest()
+            let classifyRequest = VNClassifyImageRequest()
+            classifyRequest.maximumLeafObservations = 8
+
+            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+            do {
+                try handler.perform([animalRequest, classifyRequest])
+                for observation in animalRequest.results ?? [] {
+                    labels.append(contentsOf: observation.labels.map { $0.identifier.lowercased() })
+                }
+                labels.append(contentsOf: (classifyRequest.results ?? []).map { $0.identifier.lowercased() })
+            } catch {
+                return labels
+            }
+
+            return labels.flatMap(Self.expandVisionIdentifier)
+        }.value
+    }
+
+    private static func expandVisionIdentifier(_ identifier: String) -> [String] {
+        let cleaned = identifier
+            .replacingOccurrences(of: "_", with: " ")
+            .replacingOccurrences(of: "-", with: " ")
+            .replacingOccurrences(of: ",", with: " ")
+            .lowercased()
+        let pieces = cleaned
+            .split(separator: " ")
+            .map(String.init)
+        return Array(Set([cleaned] + pieces))
+    }
+
+    private func containsLabel(_ alias: String, in labels: [String]) -> Bool {
+        let normalizedAlias = alias.lowercased()
+        return labels.contains { label in
+            label.lowercased().contains(normalizedAlias)
+        }
+    }
+
     private func aliases(for keyword: String?) -> [String] {
         guard let keyword else { return [] }
         let table: [String: [String]] = [
             "小狗": ["dog", "puppy", "canine"],
             "狗": ["dog", "puppy", "canine"],
-            "猫": ["cat", "kitten"],
-            "小猫": ["cat", "kitten"],
+            "猫": ["cat", "kitten", "feline"],
+            "小猫": ["cat", "kitten", "feline"],
             "人": ["person", "people", "human"],
             "会议": ["meeting", "conference", "presentation"],
             "旅行": ["travel", "landscape", "outdoor"],
             "风景": ["landscape", "sky", "mountain", "beach"],
-            "截图": ["screenshot"]
+            "截图": ["screenshot", "screen"]
         ]
         return table[keyword] ?? [keyword.lowercased()]
     }
