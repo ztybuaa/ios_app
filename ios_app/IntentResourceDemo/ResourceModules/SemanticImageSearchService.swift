@@ -3,6 +3,7 @@ import CoreML
 import Foundation
 import Photos
 import UIKit
+import Vision
 
 final class SemanticImageSearchService {
     static let shared = SemanticImageSearchService()
@@ -15,6 +16,7 @@ final class SemanticImageSearchService {
     private let predictionLock = NSLock()
     private var imageEmbeddingCache: [String: [NamedEmbedding]] = [:]
     private var textEmbeddingCache: [String: [Float]] = [:]
+    private var evidenceCache: [String: Bool] = [:]
 
     private init() {
         let configuration = MLModelConfiguration()
@@ -125,6 +127,9 @@ final class SemanticImageSearchService {
               margin >= query.minimumMargin else {
             return nil
         }
+        guard !query.requiresHumanEvidence || await hasHumanEvidence(for: asset) else {
+            return nil
+        }
 
         let score = Double(margin * 1000 + bestPositive.value * 10)
         return makeCandidate(
@@ -229,9 +234,6 @@ final class SemanticImageSearchService {
                 contentMode: .aspectFit,
                 options: options
             ) { image, info in
-                if let degraded = info?[PHImageResultIsDegradedKey] as? Bool, degraded, needsRegionScan {
-                    return
-                }
                 if let cancelled = info?[PHImageCancelledKey] as? Bool, cancelled {
                     resumeOnce(nil)
                     return
@@ -243,6 +245,41 @@ final class SemanticImageSearchService {
                 resumeOnce(image)
             }
         }
+    }
+
+    private func hasHumanEvidence(for asset: PHAsset) async -> Bool {
+        let cacheKey = "human|\(asset.localIdentifier)"
+        if let cached = cachedEvidence(cacheKey) {
+            return cached
+        }
+        guard let image = await requestImage(asset: asset, needsRegionScan: true),
+              let cgImage = image.cgImage else {
+            setCachedEvidence(false, for: cacheKey)
+            return false
+        }
+
+        let result = await Task.detached(priority: .utility) {
+            let humanRequest = VNDetectHumanRectanglesRequest()
+            let faceRequest = VNDetectFaceRectanglesRequest()
+            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+            do {
+                try handler.perform([humanRequest, faceRequest])
+            } catch {
+                return false
+            }
+
+            let hasHuman = (humanRequest.results ?? []).contains { observation in
+                let area = observation.boundingBox.width * observation.boundingBox.height
+                return observation.confidence >= 0.2 && area >= 0.01
+            }
+            let hasFace = (faceRequest.results ?? []).contains { observation in
+                observation.confidence >= 0.15
+            }
+            return hasHuman || hasFace
+        }.value
+
+        setCachedEvidence(result, for: cacheKey)
+        return result
     }
 
     private func pixelBuffers(from image: UIImage, needsRegionScan: Bool) -> [NamedPixelBuffer]? {
@@ -369,10 +406,28 @@ final class SemanticImageSearchService {
         textEmbeddingCache[key] = value
         cacheLock.unlock()
     }
+
+    private func cachedEvidence(_ key: String) -> Bool? {
+        cacheLock.lock()
+        defer { cacheLock.unlock() }
+        return evidenceCache[key]
+    }
+
+    private func setCachedEvidence(_ value: Bool, for key: String) {
+        cacheLock.lock()
+        evidenceCache[key] = value
+        cacheLock.unlock()
+    }
 }
 
 private enum SemanticPromptBuilder {
     private static let conceptMap: [(String, [String])] = [
+        ("美女", ["woman", "female person", "portrait photo of a woman", "person"]),
+        ("女生", ["woman", "female person", "portrait photo of a woman", "person"]),
+        ("女性", ["woman", "female person", "portrait photo of a woman", "person"]),
+        ("女人", ["woman", "female person", "portrait photo of a woman", "person"]),
+        ("女孩", ["girl", "female person", "portrait photo of a girl", "person"]),
+        ("小姐姐", ["woman", "female person", "portrait photo of a woman", "person"]),
         ("猫", ["cat", "kitten", "domestic cat", "small cat"]),
         ("狗", ["dog", "puppy", "domestic dog"]),
         ("宠物", ["pet animal"]),
@@ -457,9 +512,7 @@ private enum SemanticPromptBuilder {
 
         var positivePrompts: [String] = []
         if concepts.isEmpty {
-            positivePrompts.append(queryText)
-            positivePrompts.append("an image matching the user request")
-            positivePrompts.append("a photo related to the query")
+            positivePrompts.append(contentsOf: englishTerms(from: lowerQuery))
         } else {
             let combined = concepts.prefix(4).joined(separator: ", ")
             positivePrompts.append("an image containing \(combined)")
@@ -483,15 +536,15 @@ private enum SemanticPromptBuilder {
             }
         }
 
-        if !keyword.isEmpty {
+        if hasMeaningfulEnglish(keyword) {
             positivePrompts.append(keyword)
         }
-        if !phrase.isEmpty {
+        if hasMeaningfulEnglish(phrase) {
             positivePrompts.append(phrase)
         }
 
         let visualObjectTerms = [
-            "猫", "狗", "宠物", "动物", "鸟", "鱼", "人", "人物", "小孩", "车", "自行车",
+            "美女", "女生", "女性", "女人", "女孩", "小姐姐", "猫", "狗", "宠物", "动物", "鸟", "鱼", "人", "人物", "小孩", "车", "自行车",
             "电脑", "手机", "花", "树", "食物", "饭", "咖啡", "蛋糕", "衣服", "鞋", "包",
             "背景", "角落", "旁边"
         ]
@@ -500,12 +553,17 @@ private enum SemanticPromptBuilder {
         let wantsScreenshot = queryText.contains("截图") || queryText.contains("截屏") || lowerQuery.contains("screenshot")
         let wantsLandscape = queryText.contains("风景") || queryText.contains("旅行") || lowerQuery.contains("landscape")
         let wantsAnimal = ["猫", "狗", "宠物", "动物"].contains { queryText.contains($0) }
+        let wantsHuman = [
+            "美女", "女生", "女性", "女人", "女孩", "小姐姐", "人像", "自拍", "合影", "人物", "人"
+        ].contains { queryText.contains($0) } ||
+            ["woman", "girl", "person", "people", "portrait", "selfie"].contains { lowerQuery.contains($0) }
 
         let negativePrompts = negativePrompts(
             concepts: concepts,
             wantsScreenshot: wantsScreenshot,
             wantsLandscape: wantsLandscape,
-            wantsAnimal: wantsAnimal
+            wantsAnimal: wantsAnimal,
+            wantsHuman: wantsHuman
         )
 
         let minimumSimilarity: Float
@@ -513,6 +571,9 @@ private enum SemanticPromptBuilder {
         if wantsAnimal {
             minimumSimilarity = 0.205
             minimumMargin = 0.022
+        } else if wantsHuman {
+            minimumSimilarity = 0.2
+            minimumMargin = 0.025
         } else if wantsLandscape {
             minimumSimilarity = 0.195
             minimumMargin = 0.018
@@ -528,6 +589,7 @@ private enum SemanticPromptBuilder {
             positivePrompts: orderedUnique(positivePrompts),
             negativePrompts: negativePrompts,
             needsRegionScan: needsRegionScan,
+            requiresHumanEvidence: wantsHuman,
             minimumSimilarity: minimumSimilarity,
             minimumMargin: minimumMargin
         )
@@ -537,7 +599,8 @@ private enum SemanticPromptBuilder {
         concepts: [String],
         wantsScreenshot: Bool,
         wantsLandscape: Bool,
-        wantsAnimal: Bool
+        wantsAnimal: Bool,
+        wantsHuman: Bool
     ) -> [String] {
         var prompts = [
             "an unrelated photo",
@@ -553,6 +616,16 @@ private enum SemanticPromptBuilder {
                 "a screenshot without animals",
                 "a photo of buildings without animals",
                 "a person photo without animals"
+            ])
+        }
+        if wantsHuman {
+            prompts.append(contentsOf: [
+                "an object photo without people",
+                "a landscape photo without people",
+                "a screenshot without people",
+                "a document photo without people",
+                "a food photo without people",
+                "an empty room without people"
             ])
         }
         if wantsLandscape {
@@ -585,6 +658,14 @@ private enum SemanticPromptBuilder {
         }
     }
 
+    private static func hasMeaningfulEnglish(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count >= 2 else {
+            return false
+        }
+        return trimmed.range(of: #"[A-Za-z]"#, options: .regularExpression) != nil
+    }
+
     private static func orderedUnique(_ values: [String]) -> [String] {
         var seen = Set<String>()
         var result: [String] = []
@@ -603,6 +684,7 @@ private struct SemanticQuery {
     let positivePrompts: [String]
     let negativePrompts: [String]
     let needsRegionScan: Bool
+    let requiresHumanEvidence: Bool
     let minimumSimilarity: Float
     let minimumMargin: Float
 
