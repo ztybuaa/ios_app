@@ -1,7 +1,5 @@
 import Foundation
 import Photos
-import UIKit
-import Vision
 
 final class MediaResourceModule {
     func search(kind: CandidateKind, slots: NormalizedSlots, limit: Int = 12) async throws -> [ResourceCandidate] {
@@ -20,9 +18,9 @@ final class MediaResourceModule {
 
         for index in 0..<assets.count {
             let asset = assets.object(at: index)
-            let labels = await labelsForAsset(asset)
+            let labels = labelsForAsset(asset)
             let score = score(asset: asset, labels: labels, slots: slots)
-            if score > 0 || slots.searchKeyword == nil || slots.qualifiers.selectionHint.contains("recent") {
+            if score > 0 || slots.searchKeyword == nil || slots.qualifiers.selectionHint.contains("recent") || candidates.count < limit {
                 candidates.append(makeCandidate(asset: asset, kind: kind, labels: labels, score: score))
             }
         }
@@ -89,64 +87,33 @@ final class MediaResourceModule {
             subtitle: dimensions,
             detail: labels.isEmpty ? "无视觉标签" : labels.prefix(5).joined(separator: ", "),
             score: score,
-            debugInfo: "matched Photos metadata + Vision image labels"
+            debugInfo: "matched Photos metadata; Vision labels disabled in stability build"
         )
     }
 
-    private func labelsForAsset(_ asset: PHAsset) async -> [String] {
-        guard let image = await requestImage(asset: asset), let cgImage = image.cgImage else {
-            return []
+    private func labelsForAsset(_ asset: PHAsset) -> [String] {
+        var labels: [String] = []
+        if asset.mediaSubtypes.contains(.photoScreenshot) {
+            labels.append("screenshot")
+            labels.append("截图")
         }
-
-        return await Task.detached(priority: .utility) {
-            let request = VNClassifyImageRequest()
-            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-            do {
-                try handler.perform([request])
-                return (request.results ?? [])
-                    .prefix(8)
-                    .map { $0.identifier.lowercased() }
-            } catch {
-                return []
+        if asset.isFavorite {
+            labels.append("favorite")
+            labels.append("精选")
+        }
+        if let creationDate = asset.creationDate {
+            if Calendar.current.isDateInToday(creationDate) {
+                labels.append("today")
+                labels.append("今天")
             }
-        }.value
-    }
-
-    private func requestImage(asset: PHAsset) async -> UIImage? {
-        await withCheckedContinuation { continuation in
-            let resumeLock = NSLock()
-            var didResume = false
-
-            func resumeOnce(_ image: UIImage?) {
-                resumeLock.lock()
-                defer { resumeLock.unlock() }
-                guard !didResume else { return }
-                didResume = true
-                continuation.resume(returning: image)
-            }
-
-            let options = PHImageRequestOptions()
-            options.deliveryMode = .fastFormat
-            options.resizeMode = .fast
-            options.isNetworkAccessAllowed = false
-
-            PHImageManager.default().requestImage(
-                for: asset,
-                targetSize: CGSize(width: 224, height: 224),
-                contentMode: .aspectFill,
-                options: options
-            ) { image, info in
-                if let cancelled = info?[PHImageCancelledKey] as? Bool, cancelled {
-                    resumeOnce(nil)
-                    return
-                }
-                if info?[PHImageErrorKey] != nil {
-                    resumeOnce(nil)
-                    return
-                }
-                resumeOnce(image)
+            if Calendar.current.isDateInYesterday(creationDate) {
+                labels.append("yesterday")
+                labels.append("昨天")
             }
         }
+        labels.append(asset.mediaType == .video ? "video" : "photo")
+        labels.append(asset.mediaType == .video ? "视频" : "照片")
+        return labels
     }
 
     private func aliases(for keyword: String?) -> [String] {
