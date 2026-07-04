@@ -17,9 +17,11 @@ final class DemoViewModel: ObservableObject {
     @Published private(set) var searchResult: ResourceSearchResult?
     @Published private(set) var isRunning = false
     @Published private(set) var message: String?
+    @Published private(set) var runStage: String = UserDefaults.standard.string(forKey: Self.runStageKey) ?? "尚未运行"
 
     private let modelStore: ModelStore
     private let searchService = ResourceSearchService()
+    private static let runStageKey = "IntentResourceDemo.lastRunStage"
 
     init(modelStore: ModelStore) {
         self.modelStore = modelStore
@@ -32,19 +34,23 @@ final class DemoViewModel: ObservableObject {
             return
         }
 
+        markStage("开始：准备加载模型")
         modelStore.loadIfNeeded()
         guard let model = modelStore.model else {
             message = modelStore.errorMessage ?? DemoError.modelNotLoaded.localizedDescription
+            markStage("停止：模型加载失败")
             return
         }
 
         isRunning = true
         message = nil
+        markStage("模型已加载：准备推理")
 
         Task {
             let inferenceStart = CFAbsoluteTimeGetCurrent()
             let prediction = model.predict(trimmed)
             let inferenceTime = (CFAbsoluteTimeGetCurrent() - inferenceStart) * 1000
+            markStage("推理完成：准备检索候选")
             let display = InferenceDisplay(
                 input: trimmed,
                 intent: prediction.intent,
@@ -59,11 +65,18 @@ final class DemoViewModel: ObservableObject {
                 intent: prediction.intent,
                 slots: prediction.normalizedSlots
             )
+            markStage("检索完成：准备刷新界面")
 
             inference = display
             searchResult = result
             message = result.statusMessage
             isRunning = false
+            markStage("完成：界面已刷新")
         }
+    }
+
+    private func markStage(_ stage: String) {
+        runStage = stage
+        UserDefaults.standard.set(stage, forKey: Self.runStageKey)
     }
 }

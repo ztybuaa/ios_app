@@ -18,6 +18,11 @@ struct ContentView: View {
                 if let result = viewModel.searchResult {
                     ResourceResultView(result: result)
                 }
+                Section("诊断") {
+                    Text(viewModel.runStage)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
                 if let message = viewModel.message {
                     Section("状态") {
                         Text(message)
