@@ -19,7 +19,7 @@ final class ModelStore: ObservableObject {
             loadTimeMs = (CFAbsoluteTimeGetCurrent() - start) * 1000
             errorMessage = nil
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = "模型加载失败：\(error.localizedDescription)"
         }
     }
 }

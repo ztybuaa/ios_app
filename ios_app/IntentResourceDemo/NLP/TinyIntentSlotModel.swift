@@ -2,14 +2,12 @@ import Foundation
 
 struct TinyModelPayload: Decodable {
     let version: Int
-    let metadata: [String: String]?
     let intentModel: LinearClassifierPayload
     let contentModel: LinearClassifierPayload
     let targetModel: LinearClassifierPayload
 
     enum CodingKeys: String, CodingKey {
         case version
-        case metadata
         case intentModel = "intent_model"
         case contentModel = "content_model"
         case targetModel = "target_model"
