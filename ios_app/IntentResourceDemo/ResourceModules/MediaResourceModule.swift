@@ -183,12 +183,11 @@ final class MediaResourceModule {
     }
 
     private func visionLabels(for cgImage: CGImage) async -> [String] {
-        await Task.detached(priority: .utility) {
+        let task = Task.detached(priority: .utility) {
             var labels: [String] = []
 
             let animalRequest = VNRecognizeAnimalsRequest()
             let classifyRequest = VNClassifyImageRequest()
-            classifyRequest.maximumLeafObservations = 8
 
             let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
             do {
@@ -202,7 +201,8 @@ final class MediaResourceModule {
             }
 
             return labels.flatMap(Self.expandVisionIdentifier)
-        }.value
+        }
+        return await task.value
     }
 
     private static func expandVisionIdentifier(_ identifier: String) -> [String] {
