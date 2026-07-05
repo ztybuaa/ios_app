@@ -1,0 +1,13 @@
+{
+  "name": "intent-resource-demo-tools",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prepare:semantic-eval": ".venv/Scripts/python.exe scripts/prepare_semantic_eval_dataset.py",
+    "eval:semantic-images": "node scripts/eval_mobileclip_retrieval.mjs"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "4.2.0"
+  }
+}

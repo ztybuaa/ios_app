@@ -1,0 +1,119 @@
+{
+  "version": 1,
+  "description": "Small semantic image retrieval regression set for pre-device checks. Chinese queries are paired with canonical English prompts because the iOS app should translate Chinese text before MobileCLIP retrieval.",
+  "imageRoot": "images",
+  "images": [
+    {
+      "id": "cats",
+      "file": "cats.jpg",
+      "url": "https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/cats.jpg",
+      "description": "Several cats sitting together.",
+      "tags": ["cat", "animal", "pet"]
+    },
+    {
+      "id": "corgi",
+      "file": "corgi.jpg",
+      "url": "https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/corgi.jpg",
+      "description": "A corgi dog outdoors.",
+      "tags": ["dog", "animal", "pet"]
+    },
+    {
+      "id": "moraine_lake",
+      "file": "moraine-lake.png",
+      "url": "https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/moraine-lake.png",
+      "description": "A mountain lake landscape.",
+      "tags": ["landscape", "mountain", "lake", "scenery"]
+    },
+    {
+      "id": "beach",
+      "file": "beach.png",
+      "url": "https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/beach.png",
+      "description": "A beach landscape.",
+      "tags": ["landscape", "beach", "scenery"]
+    },
+    {
+      "id": "portrait_woman",
+      "file": "portrait-of-woman_small.jpg",
+      "url": "https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/portrait-of-woman_small.jpg",
+      "description": "Portrait photo of a woman.",
+      "tags": ["woman", "person", "portrait"]
+    },
+    {
+      "id": "woman_afro",
+      "file": "woman-with-afro.jpg",
+      "url": "https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/woman-with-afro.jpg",
+      "description": "Photo of a woman with afro hair.",
+      "tags": ["woman", "person", "portrait"]
+    },
+    {
+      "id": "semantic_search_ui",
+      "file": "semantic-image-search-min.png",
+      "url": "https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/semantic-image-search-min.png",
+      "description": "A web app screenshot for semantic image search.",
+      "tags": ["screenshot", "app", "interface"]
+    },
+    {
+      "id": "game_screenshot",
+      "file": "synthetic-game-screenshot.png",
+      "generated": "opencv",
+      "description": "Synthetic mobile game interface screenshot generated locally.",
+      "tags": ["game", "screenshot", "interface"]
+    }
+  ],
+  "queries": [
+    {
+      "id": "cat",
+      "chinese": "小猫图片",
+      "english": "a photo containing a cat or kitten",
+      "positivePrompts": ["a photo containing a cat", "a kitten visible in the image", "domestic cat"],
+      "negativePrompts": ["a dog photo", "a landscape photo", "a screenshot", "a portrait photo of a person"],
+      "expected": ["cats"],
+      "topK": 2
+    },
+    {
+      "id": "dog",
+      "chinese": "小狗图片",
+      "english": "a photo containing a dog or puppy",
+      "positivePrompts": ["a photo containing a dog", "a puppy visible in the image", "domestic dog"],
+      "negativePrompts": ["a cat photo", "a landscape photo", "a screenshot", "a portrait photo of a person"],
+      "expected": ["corgi"],
+      "topK": 2
+    },
+    {
+      "id": "landscape",
+      "chinese": "风景图片",
+      "english": "a landscape scenery photo",
+      "positivePrompts": ["a landscape photo", "a scenic outdoor photo", "mountains, lake, beach or natural scenery"],
+      "negativePrompts": ["a portrait photo", "a pet photo", "a screenshot", "a document image"],
+      "expected": ["moraine_lake", "beach"],
+      "topK": 3
+    },
+    {
+      "id": "woman",
+      "chinese": "美女图片",
+      "english": "a portrait photo of a woman",
+      "positivePrompts": ["a portrait photo of a woman", "a woman visible in the image", "a female person photo"],
+      "negativePrompts": ["a pet photo", "a landscape photo", "a screenshot", "an object photo without people"],
+      "expected": ["portrait_woman", "woman_afro"],
+      "topK": 3
+    },
+    {
+      "id": "screenshot",
+      "chinese": "截图",
+      "english": "a mobile app screenshot",
+      "positivePrompts": ["a mobile app screenshot", "a phone screen capture", "an app interface screenshot"],
+      "negativePrompts": ["a camera photo", "a landscape photo", "a portrait photo", "a pet photo"],
+      "expected": ["semantic_search_ui", "game_screenshot"],
+      "topK": 3
+    },
+    {
+      "id": "game_screenshot",
+      "chinese": "游戏截图",
+      "english": "a video game screenshot",
+      "positivePrompts": ["a video game screenshot", "a gameplay screen", "a mobile game interface"],
+      "negativePrompts": ["a landscape photo", "a pet photo", "a portrait photo", "a document image"],
+      "expected": ["game_screenshot"],
+      "topK": 3
+    }
+  ]
+}

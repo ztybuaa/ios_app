@@ -132,6 +132,16 @@ docs/
 .\.venv\Scripts\python.exe .\scripts\validate_ios_project.py
 ```
 
+本地预检：
+
+```powershell
+.\scripts\run_local_preflight.ps1
+```
+
+这会先使用工程 `.venv` 运行 iOS 工程结构验证，再准备 `processed/eval/semantic_image_retrieval/` 下的小型语义图片评测集，并用 `Xenova/mobileclip_s0` 的 Transformers.js/ONNX 版本在电脑端跑猫、狗、风景、人像、截图、游戏截图等检索回归。评测报告会写入 `processed/eval/semantic_image_retrieval/results/mobileclip_eval_report.json`。
+
+Windows 电脑不能直接运行 iOS Simulator；Apple Translation 的真实系统翻译效果也不能在 iOS Simulator 里验证。因此这个预检主要用于在发 IPA 前拦住工程结构错误和语义检索乱排问题，最终权限、相册和系统翻译仍需真机确认。
+
 ## GitHub Actions 打包 IPA
 
 已加入 GitHub Actions 工作流：

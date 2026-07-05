@@ -1,4 +1,5 @@
 import SwiftUI
+import Translation
 
 struct ContentView: View {
     @EnvironmentObject private var modelStore: ModelStore
@@ -32,6 +33,7 @@ struct ContentView: View {
                 }
             }
             .navigationTitle("端侧资源 Demo")
+            .semanticTranslationBridge(viewModel: viewModel)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -71,5 +73,75 @@ struct ContentView: View {
                     .foregroundStyle(.red)
             }
         }
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func semanticTranslationBridge(viewModel: DemoViewModel) -> some View {
+        if #available(iOS 18.0, *) {
+            modifier(SemanticTranslationBridge(viewModel: viewModel))
+        } else {
+            modifier(UnsupportedSemanticTranslationBridge(viewModel: viewModel))
+        }
+    }
+}
+
+@available(iOS 18.0, *)
+private struct SemanticTranslationBridge: ViewModifier {
+    @ObservedObject var viewModel: DemoViewModel
+    @State private var configuration: TranslationSession.Configuration?
+
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: viewModel.pendingTranslationRequestID) { _ in
+                guard viewModel.pendingTranslationRequest != nil else {
+                    return
+                }
+                if configuration == nil {
+                    configuration = TranslationSession.Configuration(
+                        source: Locale.Language(identifier: "zh-Hans"),
+                        target: Locale.Language(identifier: "en")
+                    )
+                } else {
+                    configuration?.invalidate()
+                }
+            }
+            .translationTask(configuration) { session in
+                guard let request = await MainActor.run(body: { viewModel.pendingTranslationRequest }) else {
+                    return
+                }
+                do {
+                    try await session.prepareTranslation()
+                    let response = try await session.translate(request.sourceText)
+                    await MainActor.run {
+                        viewModel.completePendingTranslation(id: request.id, translatedText: response.targetText)
+                    }
+                } catch {
+                    await MainActor.run {
+                        viewModel.failPendingTranslation(
+                            id: request.id,
+                            message: "系统翻译失败：\(error.localizedDescription)。请确认设备已支持并下载中英翻译语言包。"
+                        )
+                    }
+                }
+            }
+    }
+}
+
+private struct UnsupportedSemanticTranslationBridge: ViewModifier {
+    @ObservedObject var viewModel: DemoViewModel
+
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: viewModel.pendingTranslationRequestID) { requestID in
+                guard requestID != nil else {
+                    return
+                }
+                viewModel.failPendingTranslation(
+                    id: requestID,
+                    message: "当前 iOS 版本不支持程序化系统翻译。请升级到 iOS 18 或更高版本，或直接输入英文图片描述。"
+                )
+            }
     }
 }

@@ -4,7 +4,12 @@ import UIKit
 import Vision
 
 final class MediaResourceModule {
-    func search(kind: CandidateKind, slots: NormalizedSlots, limit: Int = 12) async throws -> [ResourceCandidate] {
+    func search(
+        kind: CandidateKind,
+        slots: NormalizedSlots,
+        semanticQueryText: String? = nil,
+        limit: Int = 12
+    ) async throws -> [ResourceCandidate] {
         try await ensureAccess()
 
         let plan = MediaQueryPlan(slots: slots)
@@ -24,6 +29,7 @@ final class MediaResourceModule {
                 assets: assetList,
                 kind: kind,
                 slots: slots,
+                semanticQueryText: semanticQueryText,
                 limit: limit
             )
             return semanticCandidates

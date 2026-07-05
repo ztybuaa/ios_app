@@ -3,7 +3,6 @@ import CoreML
 import Foundation
 import Photos
 import UIKit
-import Vision
 
 final class SemanticImageSearchService {
     static let shared = SemanticImageSearchService()
@@ -16,7 +15,6 @@ final class SemanticImageSearchService {
     private let predictionLock = NSLock()
     private var imageEmbeddingCache: [String: [NamedEmbedding]] = [:]
     private var textEmbeddingCache: [String: [Float]] = [:]
-    private var evidenceCache: [String: VisionEvidence] = [:]
 
     private init() {
         let configuration = MLModelConfiguration()
@@ -34,13 +32,14 @@ final class SemanticImageSearchService {
         assets: [PHAsset],
         kind: CandidateKind,
         slots: NormalizedSlots,
+        semanticQueryText: String?,
         limit: Int
     ) async throws -> [ResourceCandidate] {
         guard isAvailable else {
             throw DemoError.resourceUnavailable("MobileCLIP semantic model is not loaded.")
         }
 
-        let query = SemanticQueryPlanner.query(for: slots)
+        let query = SemanticQueryPlanner.query(for: slots, semanticQueryText: semanticQueryText)
         guard let positiveEmbeddings = textEmbeddings(for: query.positivePrompts),
               let negativeEmbeddings = textEmbeddings(for: query.negativePrompts),
               !positiveEmbeddings.isEmpty,
@@ -95,7 +94,7 @@ final class SemanticImageSearchService {
     }
 
     private func semanticBatchSize(for query: SemanticQuery) -> Int {
-        query.needsRegionScan ? 2 : 3
+        2
     }
 
     private func matchCandidate(
@@ -125,9 +124,6 @@ final class SemanticImageSearchService {
         let margin = bestPositive.value - bestNegative
         guard bestPositive.value >= query.minimumSimilarity,
               margin >= query.minimumMargin else {
-            return nil
-        }
-        guard await passesRequiredEvidence(asset: asset, query: query) else {
             return nil
         }
 
@@ -245,75 +241,6 @@ final class SemanticImageSearchService {
                 resumeOnce(image)
             }
         }
-    }
-
-    private func passesRequiredEvidence(asset: PHAsset, query: SemanticQuery) async -> Bool {
-        guard query.requiresHumanEvidence || !query.requiredAnimalLabels.isEmpty else {
-            return true
-        }
-
-        guard let evidence = await visionEvidence(for: asset) else {
-            return false
-        }
-
-        if query.requiresHumanEvidence && !evidence.hasHuman {
-            return false
-        }
-        if !query.requiredAnimalLabels.isEmpty {
-            let matchedAnimal = query.requiredAnimalLabels.contains { required in
-                evidence.animals.contains { animal in
-                    animal.label == required && animal.confidence >= 0.12
-                }
-            }
-            if !matchedAnimal {
-                return false
-            }
-        }
-        return true
-    }
-
-    private func visionEvidence(for asset: PHAsset) async -> VisionEvidence? {
-        if let cached = cachedEvidence(asset.localIdentifier) {
-            return cached
-        }
-        guard let image = await requestImage(asset: asset, needsRegionScan: true),
-              let cgImage = image.cgImage else {
-            return nil
-        }
-
-        let humanRequest = VNDetectHumanRectanglesRequest()
-        let faceRequest = VNDetectFaceRectanglesRequest()
-        let animalRequest = VNRecognizeAnimalsRequest()
-        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-
-        do {
-            try handler.perform([humanRequest, faceRequest, animalRequest])
-        } catch {
-            return nil
-        }
-
-        let hasHuman = (humanRequest.results ?? []).contains { observation in
-            let area = observation.boundingBox.width * observation.boundingBox.height
-            return observation.confidence >= 0.2 && area >= 0.01
-        }
-        let hasFace = (faceRequest.results ?? []).contains { observation in
-            observation.confidence >= 0.15
-        }
-        var animals: [AnimalVisionEvidence] = []
-        for observation in animalRequest.results ?? [] {
-            for label in observation.labels {
-                animals.append(
-                    AnimalVisionEvidence(
-                        label: label.identifier.lowercased(),
-                        confidence: label.confidence
-                    )
-                )
-            }
-        }
-
-        let evidence = VisionEvidence(hasHuman: hasHuman || hasFace, animals: animals)
-        setCachedEvidence(evidence, for: asset.localIdentifier)
-        return evidence
     }
 
     private func pixelBuffers(from image: UIImage, needsRegionScan: Bool) -> [NamedPixelBuffer]? {
@@ -441,266 +368,53 @@ final class SemanticImageSearchService {
         cacheLock.unlock()
     }
 
-    private func cachedEvidence(_ key: String) -> VisionEvidence? {
-        cacheLock.lock()
-        defer { cacheLock.unlock() }
-        return evidenceCache[key]
-    }
-
-    private func setCachedEvidence(_ value: VisionEvidence, for key: String) {
-        cacheLock.lock()
-        evidenceCache[key] = value
-        cacheLock.unlock()
-    }
 }
 
 private enum SemanticQueryPlanner {
-    private static let conceptMap: [(String, [String])] = [
-        ("美女", ["woman", "female person", "portrait photo of a woman", "person"]),
-        ("女生", ["woman", "female person", "portrait photo of a woman", "person"]),
-        ("女性", ["woman", "female person", "portrait photo of a woman", "person"]),
-        ("女人", ["woman", "female person", "portrait photo of a woman", "person"]),
-        ("女孩", ["girl", "female person", "portrait photo of a girl", "person"]),
-        ("小姐姐", ["woman", "female person", "portrait photo of a woman", "person"]),
-        ("小猫", ["cat", "kitten", "domestic cat", "small cat"]),
-        ("猫咪", ["cat", "kitten", "domestic cat", "small cat"]),
-        ("猫", ["cat", "kitten", "domestic cat", "small cat"]),
-        ("小狗", ["dog", "puppy", "domestic dog"]),
-        ("狗狗", ["dog", "puppy", "domestic dog"]),
-        ("狗", ["dog", "puppy", "domestic dog"]),
-        ("宠物", ["pet animal"]),
-        ("动物", ["animal"]),
-        ("鸟", ["bird"]),
-        ("鱼", ["fish"]),
-        ("花", ["flower"]),
-        ("树", ["tree"]),
-        ("草地", ["grass field"]),
-        ("天空", ["sky"]),
-        ("云", ["clouds"]),
-        ("雪", ["snow"]),
-        ("海", ["sea", "ocean"]),
-        ("山", ["mountain"]),
-        ("河", ["river"]),
-        ("湖", ["lake"]),
-        ("风景", ["landscape", "scenery", "nature scene", "outdoor landscape"]),
-        ("旅行", ["travel photo"]),
-        ("街景", ["street scene"]),
-        ("夜景", ["night scene"]),
-        ("人像", ["portrait photo of a person"]),
-        ("自拍", ["selfie"]),
-        ("合影", ["group photo"]),
-        ("小孩", ["child"]),
-        ("孩子", ["child"]),
-        ("老人", ["elderly person"]),
-        ("人物", ["person"]),
-        ("人", ["person"]),
-        ("游戏截图", ["video game screenshot", "gameplay screen"]),
-        ("游戏", ["video game", "gameplay", "game interface"]),
-        ("截图", ["screenshot", "phone screen capture"]),
-        ("截屏", ["screenshot", "phone screen capture"]),
-        ("聊天", ["chat screenshot", "messaging app screen"]),
-        ("微信", ["WeChat screenshot", "chat app screen"]),
-        ("代码", ["code editor screenshot", "programming code"]),
-        ("网页", ["web page screenshot"]),
-        ("App", ["mobile app interface"]),
-        ("应用", ["mobile app interface"]),
-        ("地图", ["map screenshot"]),
-        ("票", ["ticket", "receipt"]),
-        ("证件", ["identity document", "card document"]),
-        ("文档", ["document screenshot"]),
-        ("表格", ["spreadsheet", "table document"]),
-        ("幻灯片", ["presentation slide"]),
-        ("PPT", ["presentation slide"]),
-        ("博物馆", ["museum exhibition"]),
-        ("展览", ["exhibition hall"]),
-        ("会议", ["meeting", "conference room"]),
-        ("课堂", ["classroom"]),
-        ("白板", ["whiteboard"]),
-        ("电脑", ["computer"]),
-        ("手机", ["phone"]),
-        ("车", ["car"]),
-        ("自行车", ["bicycle"]),
-        ("食物", ["food"]),
-        ("饭", ["meal", "food"]),
-        ("咖啡", ["coffee"]),
-        ("蛋糕", ["cake"]),
-        ("衣服", ["clothing"]),
-        ("鞋", ["shoes"]),
-        ("包", ["bag"]),
-        ("红色", ["red"]),
-        ("蓝色", ["blue"]),
-        ("绿色", ["green"]),
-        ("黄色", ["yellow"]),
-        ("黑色", ["black"]),
-        ("白色", ["white"])
-    ]
-
-    static func query(for slots: NormalizedSlots) -> SemanticQuery {
-        let phrase = slots.resourcePhrase.trimmingCharacters(in: .whitespacesAndNewlines)
-        let keyword = slots.searchKeyword?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let queryText = orderedUnique([keyword, phrase]).joined(separator: " ")
-        let lowerQuery = queryText.lowercased()
-
-        var concepts: [String] = []
-        for (source, translations) in conceptMap where queryText.contains(source) {
-            concepts.append(contentsOf: translations)
-        }
-        concepts.append(contentsOf: englishTerms(from: lowerQuery))
-        concepts = orderedUnique(concepts)
-
-        var positivePrompts: [String] = []
-        if concepts.isEmpty {
-            positivePrompts.append(contentsOf: englishTerms(from: lowerQuery))
-        } else {
-            let combined = concepts.prefix(4).joined(separator: ", ")
-            positivePrompts.append("an image containing \(combined)")
-            positivePrompts.append("a photo containing \(combined)")
-            positivePrompts.append("\(combined) visible in the image")
-            for concept in concepts.prefix(8) {
-                positivePrompts.append("a photo containing \(concept)")
-                positivePrompts.append("\(concept) visible in the image")
-            }
-        }
-
-        if queryText.contains("截图") || queryText.contains("截屏") || lowerQuery.contains("screenshot") {
-            positivePrompts.append("a screenshot matching \(concepts.first ?? "the query")")
-            positivePrompts.append("a phone screen capture with \(concepts.prefix(3).joined(separator: ", "))")
-        }
-
-        if queryText.contains("背景") || queryText.contains("角落") || queryText.contains("旁边") {
-            for concept in concepts.prefix(4) {
-                positivePrompts.append("\(concept) in the background")
-                positivePrompts.append("a small \(concept) visible in the image")
-            }
-        }
-
-        if hasMeaningfulEnglish(keyword) {
-            positivePrompts.append(keyword)
-        }
-        if hasMeaningfulEnglish(phrase) {
-            positivePrompts.append(phrase)
-        }
-
-        let visualObjectTerms = [
-            "美女", "女生", "女性", "女人", "女孩", "小姐姐", "小猫", "猫咪", "猫", "小狗", "狗狗", "狗", "宠物", "动物", "鸟", "鱼", "人", "人物", "小孩", "车", "自行车",
-            "电脑", "手机", "花", "树", "食物", "饭", "咖啡", "蛋糕", "衣服", "鞋", "包",
-            "背景", "角落", "旁边"
-        ]
-        let needsRegionScan = visualObjectTerms.contains { queryText.contains($0) }
-
-        let wantsScreenshot = queryText.contains("截图") || queryText.contains("截屏") || lowerQuery.contains("screenshot")
-        let wantsLandscape = queryText.contains("风景") || queryText.contains("旅行") || lowerQuery.contains("landscape")
-        let wantsAnimal = ["小猫", "猫咪", "猫", "小狗", "狗狗", "狗", "宠物", "动物"].contains { queryText.contains($0) }
-        let wantsHuman = [
-            "美女", "女生", "女性", "女人", "女孩", "小姐姐", "人像", "自拍", "合影", "人物", "人"
-        ].contains { queryText.contains($0) } ||
-            ["woman", "girl", "person", "people", "portrait", "selfie"].contains { lowerQuery.contains($0) }
-        let requiredAnimalLabels = animalEvidenceLabels(for: queryText, lowerQuery: lowerQuery)
-
-        let negativePrompts = negativePrompts(
-            concepts: concepts,
-            wantsScreenshot: wantsScreenshot,
-            wantsLandscape: wantsLandscape,
-            wantsAnimal: wantsAnimal,
-            wantsHuman: wantsHuman
+    static func query(for slots: NormalizedSlots, semanticQueryText: String?) -> SemanticQuery {
+        let translated = semanticQueryText?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let fallbackEnglish = englishTerms(
+            from: [
+                slots.searchKeyword ?? "",
+                slots.resourcePhrase
+            ]
+            .joined(separator: " ")
+            .lowercased()
         )
+        let queryText = translated.isEmpty ? fallbackEnglish.joined(separator: " ") : translated
+        let normalizedQuery = queryText
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
 
-        let minimumSimilarity: Float
-        let minimumMargin: Float
-        if wantsAnimal {
-            minimumSimilarity = 0.205
-            minimumMargin = 0.022
-        } else if wantsHuman {
-            minimumSimilarity = 0.2
-            minimumMargin = 0.025
-        } else if wantsLandscape {
-            minimumSimilarity = 0.195
-            minimumMargin = 0.018
-        } else if wantsScreenshot {
-            minimumSimilarity = 0.19
-            minimumMargin = 0.016
-        } else {
-            minimumSimilarity = 0.195
-            minimumMargin = 0.018
-        }
+        let subject = normalizedQuery.isEmpty ? "the requested visual content" : normalizedQuery
+        let positivePrompts = orderedUnique([
+            subject,
+            "an image matching \(subject)",
+            "a photo containing \(subject)",
+            "\(subject) visible anywhere in the image",
+            "a close-up or background view containing \(subject)",
+            "a screen capture or app interface matching \(subject)"
+        ])
+
+        let negativePrompts = orderedUnique([
+            "an unrelated image",
+            "a random photo",
+            "a generic image that does not match the request",
+            "a blurry or ambiguous image",
+            "an image without \(subject)"
+        ])
 
         return SemanticQuery(
-            positivePrompts: orderedUnique(positivePrompts),
+            positivePrompts: positivePrompts,
             negativePrompts: negativePrompts,
-            needsRegionScan: needsRegionScan,
-            requiresHumanEvidence: wantsHuman,
-            requiredAnimalLabels: requiredAnimalLabels,
-            minimumSimilarity: minimumSimilarity,
-            minimumMargin: minimumMargin
+            needsRegionScan: true,
+            minimumSimilarity: 0.17,
+            minimumMargin: 0.012
         )
-    }
-
-    private static func animalEvidenceLabels(for queryText: String, lowerQuery: String) -> [String] {
-        var labels: [String] = []
-        if ["小猫", "猫咪", "猫"].contains(where: queryText.contains) ||
-            ["cat", "kitten"].contains(where: lowerQuery.contains) {
-            labels.append("cat")
-        }
-        if ["小狗", "狗狗", "狗"].contains(where: queryText.contains) ||
-            ["dog", "puppy"].contains(where: lowerQuery.contains) {
-            labels.append("dog")
-        }
-        return orderedUnique(labels)
-    }
-
-    private static func negativePrompts(
-        concepts: [String],
-        wantsScreenshot: Bool,
-        wantsLandscape: Bool,
-        wantsAnimal: Bool,
-        wantsHuman: Bool
-    ) -> [String] {
-        var prompts = [
-            "an unrelated photo",
-            "a random photo",
-            "a generic image",
-            "a blurry photo",
-            "a photo without \(concepts.first ?? "the requested subject")"
-        ]
-
-        if wantsAnimal {
-            prompts.append(contentsOf: [
-                "a landscape photo without animals",
-                "a screenshot without animals",
-                "a photo of buildings without animals",
-                "a person photo without animals"
-            ])
-        }
-        if wantsHuman {
-            prompts.append(contentsOf: [
-                "an object photo without people",
-                "a landscape photo without people",
-                "a screenshot without people",
-                "a document photo without people",
-                "a food photo without people",
-                "an empty room without people"
-            ])
-        }
-        if wantsLandscape {
-            prompts.append(contentsOf: [
-                "an indoor photo",
-                "a screenshot",
-                "a close up portrait",
-                "a document photo"
-            ])
-        }
-        if wantsScreenshot {
-            prompts.append(contentsOf: [
-                "a camera photo",
-                "a natural landscape photo",
-                "a portrait photo"
-            ])
-        }
-        return orderedUnique(prompts)
     }
 
     private static func englishTerms(from text: String) -> [String] {
-        let pattern = "[a-z0-9][a-z0-9 -]{1,40}"
+        let pattern = "[a-z0-9][a-z0-9 -]{1,80}"
         guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
             return []
         }
@@ -709,14 +423,6 @@ private enum SemanticQueryPlanner {
             guard let swiftRange = Range(match.range, in: text) else { return nil }
             return String(text[swiftRange]).trimmingCharacters(in: .whitespacesAndNewlines)
         }
-    }
-
-    private static func hasMeaningfulEnglish(_ text: String) -> Bool {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.count >= 2 else {
-            return false
-        }
-        return trimmed.range(of: #"[A-Za-z]"#, options: .regularExpression) != nil
     }
 
     private static func orderedUnique(_ values: [String]) -> [String] {
@@ -737,8 +443,6 @@ private struct SemanticQuery {
     let positivePrompts: [String]
     let negativePrompts: [String]
     let needsRegionScan: Bool
-    let requiresHumanEvidence: Bool
-    let requiredAnimalLabels: [String]
     let minimumSimilarity: Float
     let minimumMargin: Float
 
@@ -760,16 +464,6 @@ private struct NamedPixelBuffer {
 private struct SemanticMatchScore {
     let value: Float
     let cropName: String
-}
-
-private struct VisionEvidence {
-    let hasHuman: Bool
-    let animals: [AnimalVisionEvidence]
-}
-
-private struct AnimalVisionEvidence {
-    let label: String
-    let confidence: Float
 }
 
 private enum RegionAnchor: String {

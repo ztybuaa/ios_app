@@ -1,4 +1,5 @@
 .venv/
+node_modules/
 __pycache__/
 *.py[cod]
 .pytest_cache/
@@ -9,3 +10,5 @@ Thumbs.db
 build/
 dist/
 DerivedData/
+processed/eval/semantic_image_retrieval/images/
+processed/eval/semantic_image_retrieval/results/
