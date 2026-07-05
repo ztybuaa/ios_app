@@ -1,4 +1,6 @@
 import json
+import subprocess
+import time
 import urllib.request
 from pathlib import Path
 
@@ -20,9 +22,30 @@ def download(url: str, destination: Path) -> None:
     if destination.exists() and destination.stat().st_size > 0:
         return
     destination.parent.mkdir(parents=True, exist_ok=True)
-    with urllib.request.urlopen(url, timeout=60) as response:
-        payload = response.read()
-    destination.write_bytes(payload)
+    last_error: Exception | None = None
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(url, timeout=90) as response:
+                payload = response.read()
+            destination.write_bytes(payload)
+            return
+        except Exception as error:
+            last_error = error
+            time.sleep(1 + attempt)
+
+    curl = subprocess.run(
+        ["curl.exe", "-L", "--retry", "3", "--retry-delay", "2", "-o", str(destination), url],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    if curl.returncode != 0:
+        raise SystemExit(
+            f"Failed to download {url}\n"
+            f"urllib error: {last_error}\n"
+            f"curl error: {curl.stderr}"
+        )
 
 
 def generate_game_screenshot(destination: Path) -> None:

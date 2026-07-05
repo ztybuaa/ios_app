@@ -30,6 +30,76 @@ function scoreFromEmbeddings(imageEmbedding, labelEmbeddings, positiveLabels, ne
   return { positive, negative, margin: positive - negative };
 }
 
+function orderedUnique(values) {
+  const seen = new Set();
+  const result = [];
+  for (const value of values) {
+    const normalized = (value ?? '').trim().replace(/\s+/g, ' ');
+    if (!normalized) continue;
+    const key = normalized.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push(normalized);
+    }
+  }
+  return result;
+}
+
+function containsAny(text, terms) {
+  return terms.some((term) => text.includes(term));
+}
+
+function semanticQueryPlan(subject) {
+  const normalized = subject.trim().replace(/\s+/g, ' ');
+  const querySubject = normalized || 'the requested visual content';
+  const lowerSubject = querySubject.toLowerCase();
+  const wantsScreen = containsAny(lowerSubject, ['screenshot', 'screen capture', 'screen', 'interface', 'gameplay', 'game']);
+  const wantsGame = containsAny(lowerSubject, ['game', 'gameplay']);
+  const wantsScenery = containsAny(lowerSubject, ['landscape', 'scenery', 'nature', 'outdoor', 'mountain', 'lake', 'beach']);
+  const wantsWildlife = containsAny(lowerSubject, ['wildlife', 'wild animal', 'zoo', 'safari']);
+
+  const positivePrompts = [
+    querySubject,
+    `an image matching ${querySubject}`,
+    `a photo containing ${querySubject}`,
+    `${querySubject} visible anywhere in the image`,
+    `a close-up or background view containing ${querySubject}`,
+    wantsScreen
+      ? `a screenshot or app interface matching ${querySubject}`
+      : `a real camera photo matching ${querySubject}`,
+    wantsGame ? 'a video game screenshot' : '',
+    wantsGame ? 'a gameplay screen' : '',
+    wantsGame ? 'a game interface' : '',
+    !wantsWildlife && !wantsScreen ? `a domestic or everyday subject matching ${querySubject}` : '',
+  ];
+
+  const negativePrompts = [
+    'an unrelated image',
+    'a visually similar but wrong image',
+    'a different object, animal, or scene',
+    'a random photo',
+    'a generic image that does not match the request',
+    'a blurry or ambiguous image',
+    `an image without ${querySubject}`,
+    !wantsWildlife ? 'a wildlife animal photo' : '',
+    !wantsWildlife ? 'a zoo animal photo' : '',
+    !wantsWildlife ? 'a wild predator animal photo' : '',
+    wantsScreen ? 'a real camera photo' : 'a screenshot or app interface that does not match the query',
+    wantsScreen ? 'a pet or animal photo' : '',
+    wantsScreen ? 'a landscape camera photo' : '',
+    wantsGame ? 'a generic app screenshot' : '',
+    wantsGame ? 'a web app interface screenshot' : '',
+    wantsGame ? 'a phone settings screenshot' : '',
+  ];
+
+  return {
+    positivePrompts: orderedUnique(positivePrompts),
+    negativePrompts: orderedUnique(negativePrompts),
+    minimumSimilarity: 0.19,
+    minimumMargin: wantsGame || wantsScenery ? 0.035 : 0.008,
+  };
+}
+
 async function ensureFixtureFiles(manifest) {
   const missing = [];
   for (const image of manifest.images) {
@@ -77,7 +147,8 @@ async function main() {
   let failed = false;
 
   for (const query of manifest.queries) {
-    const labels = [...query.positivePrompts, ...query.negativePrompts];
+    const queryPlan = semanticQueryPlan(query.english);
+    const labels = [...queryPlan.positivePrompts, ...queryPlan.negativePrompts];
     const textInputs = tokenizer(labels, { padding: 'max_length', truncation: true });
     const { text_embeds } = await textModel(textInputs);
     const textRows = text_embeds.normalize().tolist();
@@ -91,8 +162,8 @@ async function main() {
       const score = scoreFromEmbeddings(
         imageEmbeddings.get(image.id),
         labelEmbeddings,
-        query.positivePrompts,
-        query.negativePrompts
+        queryPlan.positivePrompts,
+        queryPlan.negativePrompts
       );
       scored.push({
         id: image.id,
@@ -109,7 +180,10 @@ async function main() {
       return b.positive - a.positive;
     });
 
-    const topIds = scored.slice(0, query.topK).map((item) => item.id);
+    const accepted = scored.filter(
+      (item) => item.positive >= queryPlan.minimumSimilarity && item.margin >= queryPlan.minimumMargin
+    );
+    const topIds = accepted.slice(0, query.topK).map((item) => item.id);
     const hit = query.expected.some((id) => topIds.includes(id));
     if (!hit) failed = true;
 
@@ -120,13 +194,20 @@ async function main() {
       expected: query.expected,
       topK: query.topK,
       hit,
+      positivePrompts: queryPlan.positivePrompts,
+      negativePrompts: queryPlan.negativePrompts,
+      minimumSimilarity: queryPlan.minimumSimilarity,
+      minimumMargin: queryPlan.minimumMargin,
       ranked: scored,
+      accepted,
     });
 
     console.log(`\n[${hit ? 'PASS' : 'FAIL'}] ${query.chinese} -> ${query.english}`);
     for (const item of scored.slice(0, 5)) {
+      const acceptedMark =
+        item.positive >= queryPlan.minimumSimilarity && item.margin >= queryPlan.minimumMargin ? '*' : ' ';
       console.log(
-        `  ${item.id.padEnd(18)} margin=${item.margin.toFixed(4)} positive=${item.positive.toFixed(4)} negative=${item.negative.toFixed(4)}`
+        `${acceptedMark} ${item.id.padEnd(18)} margin=${item.margin.toFixed(4)} positive=${item.positive.toFixed(4)} negative=${item.negative.toFixed(4)}`
       );
     }
   }

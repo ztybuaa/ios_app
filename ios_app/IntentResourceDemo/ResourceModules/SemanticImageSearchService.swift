@@ -387,29 +387,80 @@ private enum SemanticQueryPlanner {
             .trimmingCharacters(in: .whitespacesAndNewlines)
 
         let subject = normalizedQuery.isEmpty ? "the requested visual content" : normalizedQuery
-        let positivePrompts = orderedUnique([
+        let lowerSubject = subject.lowercased()
+        let wantsScreen = containsAny(
+            lowerSubject,
+            terms: ["screenshot", "screen capture", "screen", "interface", "gameplay", "game"]
+        )
+        let wantsGame = containsAny(lowerSubject, terms: ["game", "gameplay"])
+        let wantsScenery = containsAny(
+            lowerSubject,
+            terms: ["landscape", "scenery", "nature", "outdoor", "mountain", "lake", "beach"]
+        )
+        let wantsWildlife = containsAny(lowerSubject, terms: ["wildlife", "wild animal", "zoo", "safari"])
+
+        var positivePrompts = [
             subject,
             "an image matching \(subject)",
             "a photo containing \(subject)",
             "\(subject) visible anywhere in the image",
-            "a close-up or background view containing \(subject)",
-            "a screen capture or app interface matching \(subject)"
-        ])
+            "a close-up or background view containing \(subject)"
+        ]
+        positivePrompts.append(
+            wantsScreen
+            ? "a screenshot or app interface matching \(subject)"
+            : "a real camera photo matching \(subject)"
+        )
+        if wantsGame {
+            positivePrompts.append(contentsOf: [
+                "a video game screenshot",
+                "a gameplay screen",
+                "a game interface"
+            ])
+        }
+        if !wantsWildlife && !wantsScreen {
+            positivePrompts.append("a domestic or everyday subject matching \(subject)")
+        }
 
-        let negativePrompts = orderedUnique([
+        var negativePrompts = [
             "an unrelated image",
+            "a visually similar but wrong image",
+            "a different object, animal, or scene",
             "a random photo",
             "a generic image that does not match the request",
             "a blurry or ambiguous image",
             "an image without \(subject)"
-        ])
+        ]
+        if !wantsWildlife {
+            negativePrompts.append(contentsOf: [
+                "a wildlife animal photo",
+                "a zoo animal photo",
+                "a wild predator animal photo"
+            ])
+        }
+        if wantsScreen {
+            negativePrompts.append(contentsOf: [
+                "a real camera photo",
+                "a pet or animal photo",
+                "a landscape camera photo"
+            ])
+        } else {
+            negativePrompts.append("a screenshot or app interface that does not match the query")
+        }
+        if wantsGame {
+            negativePrompts.append(contentsOf: [
+                "a generic app screenshot",
+                "a web app interface screenshot",
+                "a phone settings screenshot"
+            ])
+        }
 
         return SemanticQuery(
-            positivePrompts: positivePrompts,
-            negativePrompts: negativePrompts,
+            positivePrompts: orderedUnique(positivePrompts),
+            negativePrompts: orderedUnique(negativePrompts),
             needsRegionScan: true,
-            minimumSimilarity: 0.17,
-            minimumMargin: 0.012
+            minimumSimilarity: 0.19,
+            minimumMargin: wantsGame || wantsScenery ? 0.035 : 0.008
         )
     }
 
@@ -436,6 +487,10 @@ private enum SemanticQueryPlanner {
             }
         }
         return result
+    }
+
+    private static func containsAny(_ text: String, terms: [String]) -> Bool {
+        terms.contains { text.contains($0) }
     }
 }
 

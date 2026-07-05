@@ -18,6 +18,20 @@
       "tags": ["dog", "animal", "pet"]
     },
     {
+      "id": "tiger",
+      "file": "tiger.jpg",
+      "url": "https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/tiger.jpg",
+      "description": "A tiger wildlife photo.",
+      "tags": ["wildlife", "animal", "predator"]
+    },
+    {
+      "id": "savanna",
+      "file": "savanna.jpg",
+      "url": "https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/savanna.jpg",
+      "description": "A savanna wildlife scene.",
+      "tags": ["wildlife", "animal", "landscape"]
+    },
+    {
       "id": "moraine_lake",
       "file": "moraine-lake.png",
       "url": "https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/moraine-lake.png",
@@ -64,25 +78,25 @@
     {
       "id": "cat",
       "chinese": "小猫图片",
-      "english": "a photo containing a cat or kitten",
+      "english": "Kitten, kitten picture",
       "positivePrompts": ["a photo containing a cat", "a kitten visible in the image", "domestic cat"],
-      "negativePrompts": ["a dog photo", "a landscape photo", "a screenshot", "a portrait photo of a person"],
+      "negativePrompts": ["a dog photo", "a wildlife animal photo", "a wild predator animal", "a landscape photo", "a screenshot", "a portrait photo of a person"],
       "expected": ["cats"],
       "topK": 2
     },
     {
       "id": "dog",
       "chinese": "小狗图片",
-      "english": "a photo containing a dog or puppy",
+      "english": "Puppy, puppy picture",
       "positivePrompts": ["a photo containing a dog", "a puppy visible in the image", "domestic dog"],
-      "negativePrompts": ["a cat photo", "a landscape photo", "a screenshot", "a portrait photo of a person"],
+      "negativePrompts": ["a cat photo", "a wildlife animal photo", "a wild predator animal", "a landscape photo", "a screenshot", "a portrait photo of a person"],
       "expected": ["corgi"],
       "topK": 2
     },
     {
       "id": "landscape",
       "chinese": "风景图片",
-      "english": "a landscape scenery photo",
+      "english": "Landscape picture",
       "positivePrompts": ["a landscape photo", "a scenic outdoor photo", "mountains, lake, beach or natural scenery"],
       "negativePrompts": ["a portrait photo", "a pet photo", "a screenshot", "a document image"],
       "expected": ["moraine_lake", "beach"],
@@ -91,7 +105,7 @@
     {
       "id": "woman",
       "chinese": "美女图片",
-      "english": "a portrait photo of a woman",
+      "english": "Beautiful woman picture",
       "positivePrompts": ["a portrait photo of a woman", "a woman visible in the image", "a female person photo"],
       "negativePrompts": ["a pet photo", "a landscape photo", "a screenshot", "an object photo without people"],
       "expected": ["portrait_woman", "woman_afro"],
@@ -100,7 +114,7 @@
     {
       "id": "screenshot",
       "chinese": "截图",
-      "english": "a mobile app screenshot",
+      "english": "Screenshot",
       "positivePrompts": ["a mobile app screenshot", "a phone screen capture", "an app interface screenshot"],
       "negativePrompts": ["a camera photo", "a landscape photo", "a portrait photo", "a pet photo"],
       "expected": ["semantic_search_ui", "game_screenshot"],
@@ -109,9 +123,9 @@
     {
       "id": "game_screenshot",
       "chinese": "游戏截图",
-      "english": "a video game screenshot",
+      "english": "Game screenshot",
       "positivePrompts": ["a video game screenshot", "a gameplay screen", "a mobile game interface"],
-      "negativePrompts": ["a landscape photo", "a pet photo", "a portrait photo", "a document image"],
+      "negativePrompts": ["a camera photo", "a landscape photo", "a pet photo", "a wildlife animal photo", "a portrait photo", "a document image"],
       "expected": ["game_screenshot"],
       "topK": 3
     }
