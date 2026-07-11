@@ -11,7 +11,7 @@ struct InferenceDisplay {
     let memoryMB: Double?
 }
 
-struct SemanticTranslationRequest: Equatable {
+struct SemanticTranslationRequest: Equatable, Sendable {
     let id: UUID
     let sourceText: String
 }
@@ -151,7 +151,11 @@ final class DemoViewModel: ObservableObject {
         }
     }
 
-    func failPendingTranslation(id: UUID?, message: String) {
+    func failPendingTranslation(
+        id: UUID?,
+        message: String,
+        stage: String = "停止：系统翻译不可用"
+    ) {
         guard id == nil || pendingTranslationRequest?.id == id else {
             return
         }
@@ -159,7 +163,7 @@ final class DemoViewModel: ObservableObject {
         pendingSearch = nil
         self.message = message
         isRunning = false
-        markStage("停止：系统翻译不可用")
+        markStage(stage)
     }
 
     private func markStage(_ stage: String) {
@@ -176,10 +180,8 @@ final class DemoViewModel: ObservableObject {
     }
 
     private func semanticSourceText(from slots: NormalizedSlots) -> String {
-        [slots.searchKeyword, slots.resourcePhrase]
-            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-            .joined(separator: " ")
+        return slots.resourcePhrase
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func containsCJK(_ text: String) -> Bool {

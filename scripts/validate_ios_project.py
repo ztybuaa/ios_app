@@ -1,5 +1,6 @@
 import json
 import plistlib
+import re
 from pathlib import Path
 
 from env_guard import ensure_project_venv
@@ -21,6 +22,8 @@ SCHEME_FILE = (
 )
 GITHUB_WORKFLOW = ROOT / ".github" / "workflows" / "build-ios-unsigned-ipa.yml"
 CI_BUILD_SCRIPT = ROOT / "scripts" / "ci" / "build_unsigned_ipa.sh"
+DEMO_VIEW_MODEL = APP_ROOT / "App" / "DemoViewModel.swift"
+CONTENT_VIEW = APP_ROOT / "Views" / "ContentView.swift"
 
 SWIFT_FILES = [
     "App/DemoError.swift",
@@ -106,6 +109,8 @@ def validate_info_plist():
     require("NSContactsUsageDescription" in payload, "Info.plist missing contacts usage description")
     require("NSPhotoLibraryUsageDescription" in payload, "Info.plist missing photo usage description")
     require(payload.get("LSRequiresIPhoneOS") is True, "Info.plist should require iPhone OS")
+    require(payload.get("CFBundleShortVersionString") == "$(MARKETING_VERSION)", "app version should use build setting")
+    require(payload.get("CFBundleVersion") == "$(CURRENT_PROJECT_VERSION)", "build number should use build setting")
 
 
 def validate_project_references():
@@ -119,6 +124,26 @@ def validate_project_references():
     require("PRODUCT_BUNDLE_IDENTIFIER = com.local.IntentResourceDemo;" in project_text, "bundle id not set")
     require("CODE_SIGN_STYLE = Automatic;" in project_text, "automatic signing not enabled")
     require("IPHONEOS_DEPLOYMENT_TARGET = 16.0;" in project_text, "deployment target not set")
+    build_numbers = re.findall(r"CURRENT_PROJECT_VERSION = ([^;]+);", project_text)
+    marketing_versions = re.findall(r"MARKETING_VERSION = ([^;]+);", project_text)
+    require(len(build_numbers) == 2, "expected Debug and Release build numbers")
+    require(len(set(build_numbers)) == 1, "Debug and Release build numbers differ")
+    require(len(marketing_versions) == 2, "expected Debug and Release versions")
+    require(len(set(marketing_versions)) == 1, "Debug and Release versions differ")
+
+
+def validate_translation_flow():
+    content_view = CONTENT_VIEW.read_text(encoding="utf-8")
+    view_model = DEMO_VIEW_MODEL.read_text(encoding="utf-8")
+
+    require("LanguageAvailability().status(" in content_view, "translation availability is not checked")
+    require('Locale.Language(identifier: "zh-Hans")' in content_view, "translation source language not set")
+    require('Locale.Language(identifier: "en-US")' in content_view, "translation target language not set")
+    require("session.translate(request.sourceText)" in content_view, "translation request is not executed")
+    require("try await session.prepareTranslation()" not in content_view, "translation task should call translate directly")
+    require('stage: "停止：系统翻译返回空响应"' in content_view, "empty translation response is not diagnosed")
+    require("return slots.resourcePhrase" in view_model, "semantic translation does not preserve the resource phrase")
+    require("[slots.searchKeyword, slots.resourcePhrase]" not in view_model, "semantic translation source duplicates the query")
 
 
 def validate_github_actions():
@@ -140,6 +165,7 @@ def main():
     validate_resource_index()
     validate_info_plist()
     validate_project_references()
+    validate_translation_flow()
     validate_github_actions()
     print("iOS project validation passed")
     print(f"Swift files: {len(SWIFT_FILES)}")

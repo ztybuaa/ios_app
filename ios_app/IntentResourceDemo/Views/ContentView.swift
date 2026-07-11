@@ -88,6 +88,25 @@ private extension View {
 }
 
 @available(iOS 18.0, *)
+private enum SemanticTranslationLanguages {
+    static let source = Locale.Language(identifier: "zh-Hans")
+    static let target = Locale.Language(identifier: "en-US")
+
+    static func label(for status: LanguageAvailability.Status) -> String {
+        switch status {
+        case .installed:
+            return "installed"
+        case .supported:
+            return "supported"
+        case .unsupported:
+            return "unsupported"
+        @unknown default:
+            return "unknown"
+        }
+    }
+}
+
+@available(iOS 18.0, *)
 private struct SemanticTranslationBridge: ViewModifier {
     @ObservedObject var viewModel: DemoViewModel
     @State private var configuration: TranslationSession.Configuration?
@@ -100,8 +119,8 @@ private struct SemanticTranslationBridge: ViewModifier {
                 }
                 if configuration == nil {
                     configuration = TranslationSession.Configuration(
-                        source: Locale.Language(identifier: "zh-Hans"),
-                        target: Locale.Language(identifier: "en")
+                        source: SemanticTranslationLanguages.source,
+                        target: SemanticTranslationLanguages.target
                     )
                 } else {
                     configuration?.invalidate()
@@ -111,17 +130,89 @@ private struct SemanticTranslationBridge: ViewModifier {
                 guard let request = await MainActor.run(body: { viewModel.pendingTranslationRequest }) else {
                     return
                 }
-                do {
-                    try await session.prepareTranslation()
-                    let response = try await session.translate(request.sourceText)
-                    await MainActor.run {
-                        viewModel.completePendingTranslation(id: request.id, translatedText: response.targetText)
-                    }
-                } catch {
+
+                let availability = await LanguageAvailability().status(
+                    from: SemanticTranslationLanguages.source,
+                    to: SemanticTranslationLanguages.target
+                )
+                let availabilityLabel = SemanticTranslationLanguages.label(for: availability)
+
+                switch availability {
+                case .installed, .supported:
+                    break
+                case .unsupported:
                     await MainActor.run {
                         viewModel.failPendingTranslation(
                             id: request.id,
-                            message: "系统翻译失败：\(error.localizedDescription)。请确认设备已支持并下载中英翻译语言包。"
+                            message: "系统翻译不支持 zh-Hans → en-US。",
+                            stage: "停止：翻译语言组合不受支持"
+                        )
+                    }
+                    return
+                @unknown default:
+                    await MainActor.run {
+                        viewModel.failPendingTranslation(
+                            id: request.id,
+                            message: "系统返回未知翻译可用性状态。",
+                            stage: "停止：未知翻译可用性状态"
+                        )
+                    }
+                    return
+                }
+
+                do {
+                    let response = try await session.translate(request.sourceText)
+                    let translatedText = response.targetText
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+
+                    guard !translatedText.isEmpty else {
+                        let targetScalars = response.targetText.unicodeScalars
+                            .map { "U+\(String($0.value, radix: 16, uppercase: true))" }
+                            .joined(separator: ", ")
+                        let diagnostic = [
+                            "系统翻译返回空英文结果。",
+                            "availability=\(availabilityLabel)",
+                            "request=\(String(reflecting: request.sourceText))",
+                            "responseSource=\(String(reflecting: response.sourceText))",
+                            "sourceLanguage=\(String(reflecting: response.sourceLanguage))",
+                            "targetLanguage=\(String(reflecting: response.targetLanguage))",
+                            "rawTarget=\(String(reflecting: response.targetText))",
+                            "targetCharacters=\(response.targetText.count)",
+                            "targetUTF8Bytes=\(response.targetText.utf8.count)",
+                            "targetScalars=[\(targetScalars)]"
+                        ].joined(separator: "\n")
+
+                        await MainActor.run {
+                            viewModel.failPendingTranslation(
+                                id: request.id,
+                                message: diagnostic,
+                                stage: "停止：系统翻译返回空响应"
+                            )
+                        }
+                        return
+                    }
+
+                    await MainActor.run {
+                        viewModel.completePendingTranslation(
+                            id: request.id,
+                            translatedText: translatedText
+                        )
+                    }
+                } catch {
+                    let nsError = error as NSError
+                    let diagnostic = [
+                        "系统翻译失败。",
+                        "type=\(String(reflecting: type(of: error)))",
+                        "availability=\(availabilityLabel)",
+                        "domain=\(nsError.domain)",
+                        "code=\(nsError.code)",
+                        "description=\(error.localizedDescription)"
+                    ].joined(separator: "\n")
+
+                    await MainActor.run {
+                        viewModel.failPendingTranslation(
+                            id: request.id,
+                            message: diagnostic
                         )
                     }
                 }
