@@ -137,8 +137,10 @@ def validate_translation_flow():
     view_model = DEMO_VIEW_MODEL.read_text(encoding="utf-8")
 
     require("LanguageAvailability().status(" in content_view, "translation availability is not checked")
-    require('Locale.Language(identifier: "zh-Hans")' in content_view, "translation source language not set")
+    require('static let availabilitySource = Locale.Language(identifier: "zh-Hans")' in content_view, "availability source language not set")
     require('Locale.Language(identifier: "en-US")' in content_view, "translation target language not set")
+    require("TranslationSession.Configuration(\n                        source: nil," in content_view, "translation session should detect its source language")
+    require("source: SemanticTranslationLanguages.availabilitySource" not in content_view, "translation session source should not be hard-coded")
     require("session.translate(request.sourceText)" in content_view, "translation request is not executed")
     require("try await session.prepareTranslation()" not in content_view, "translation task should call translate directly")
     require('stage: "停止：系统翻译返回空响应"' in content_view, "empty translation response is not diagnosed")

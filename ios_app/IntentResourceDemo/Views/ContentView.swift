@@ -89,7 +89,7 @@ private extension View {
 
 @available(iOS 18.0, *)
 private enum SemanticTranslationLanguages {
-    static let source = Locale.Language(identifier: "zh-Hans")
+    static let availabilitySource = Locale.Language(identifier: "zh-Hans")
     static let target = Locale.Language(identifier: "en-US")
 
     static func label(for status: LanguageAvailability.Status) -> String {
@@ -119,7 +119,7 @@ private struct SemanticTranslationBridge: ViewModifier {
                 }
                 if configuration == nil {
                     configuration = TranslationSession.Configuration(
-                        source: SemanticTranslationLanguages.source,
+                        source: nil,
                         target: SemanticTranslationLanguages.target
                     )
                 } else {
@@ -132,7 +132,7 @@ private struct SemanticTranslationBridge: ViewModifier {
                 }
 
                 let availability = await LanguageAvailability().status(
-                    from: SemanticTranslationLanguages.source,
+                    from: SemanticTranslationLanguages.availabilitySource,
                     to: SemanticTranslationLanguages.target
                 )
                 let availabilityLabel = SemanticTranslationLanguages.label(for: availability)
@@ -171,6 +171,7 @@ private struct SemanticTranslationBridge: ViewModifier {
                             .joined(separator: ", ")
                         let diagnostic = [
                             "系统翻译返回空英文结果。",
+                            "configuredSource=automatic",
                             "availability=\(availabilityLabel)",
                             "request=\(String(reflecting: request.sourceText))",
                             "responseSource=\(String(reflecting: response.sourceText))",
