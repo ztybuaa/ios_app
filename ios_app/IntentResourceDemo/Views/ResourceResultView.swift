@@ -18,15 +18,15 @@ struct ResourceResultView: View {
             Section("RN50 语义检索") {
                 MetricRow(label: "模型加载", value: duration(metrics.modelLoadTimeMs))
                 MetricRow(label: "语义总耗时", value: duration(metrics.totalWallMs))
-                MetricRow(label: "全图粗排", value: duration(metrics.fullPassWallMs))
-                MetricRow(label: "区域重排", value: duration(metrics.rerankWallMs))
+                MetricRow(label: "快速粗排", value: duration(metrics.fullPassWallMs))
+                MetricRow(label: "高质量终排", value: duration(metrics.rerankWallMs))
                 MetricRow(
                     label: "扫描 / 重排",
                     value: "\(metrics.scannedAssetCount) / \(metrics.shortlistAssetCount) 张"
                 )
                 MetricRow(
                     label: "图像推理",
-                    value: "全图 \(metrics.fullPredictionCount)，区域 \(metrics.regionPredictionCount)"
+                    value: "粗排 \(metrics.coarsePredictionCount)，终排 \(metrics.qualityPredictionCount)"
                 )
                 MetricRow(
                     label: "缓存命中",

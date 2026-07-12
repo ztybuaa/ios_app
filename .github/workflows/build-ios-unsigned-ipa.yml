@@ -10,6 +10,8 @@ on:
       - "scripts/convert_chinese_clip_rn50_coreml.py"
       - "scripts/eval_chinese_clip_rn50.py"
       - "scripts/diagnose_rn50_precision.py"
+      - "scripts/validate_chinese_clip_multiclass_quality.py"
+      - "scripts/validate_semantic_search_performance.py"
       - "scripts/prepare_semantic_eval_dataset.py"
       - "scripts/verify_chinese_clip_coreml_artifacts.py"
       - "scripts/validate_ios_project.py"
@@ -67,8 +69,10 @@ jobs:
 
       - name: Run semantic retrieval regression gates
         run: |
+          .venv/bin/python scripts/validate_semantic_search_performance.py --assets 2000 --result-limit 12
           .venv/bin/python scripts/prepare_semantic_eval_dataset.py
           .venv/bin/python scripts/eval_chinese_clip_rn50.py
+          .venv/bin/python scripts/validate_chinese_clip_multiclass_quality.py
           .venv/bin/python scripts/diagnose_rn50_precision.py
 
       - name: Restore converted Core ML cache

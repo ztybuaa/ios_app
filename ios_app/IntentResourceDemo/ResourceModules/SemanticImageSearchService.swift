@@ -39,8 +39,9 @@ final class SemanticImageSearchService {
         let metrics = SemanticSearchMetricsCollector()
 
         let fullPassStarted = CFAbsoluteTimeGetCurrent()
-        let coarseMatches = try await fullMatches(
+        let coarseMatches = try await matches(
             assets: scanAssets,
+            profile: .coarse,
             positiveEmbeddings: positiveEmbeddings,
             negativeEmbeddings: negativeEmbeddings,
             models: models,
@@ -48,35 +49,24 @@ final class SemanticImageSearchService {
         )
         let fullPassWallMs = elapsedMs(since: fullPassStarted)
 
-        var finalMatches = coarseMatches
-        var shortlistCount = 0
-        var rerankWallMs = 0.0
-        if query.needsRegionScan, !coarseMatches.isEmpty {
-            let rerankStarted = CFAbsoluteTimeGetCurrent()
-            let shortlist = Array(
-                coarseMatches
-                    .sorted(by: isRankedBefore)
-                    .prefix(semanticRerankLimit(resultLimit: limit))
-            )
-            shortlistCount = shortlist.count
-            let refined = try await refinedMatches(
-                coarseMatches: shortlist,
-                positiveEmbeddings: positiveEmbeddings,
-                negativeEmbeddings: negativeEmbeddings,
-                models: models,
-                metrics: metrics
-            )
-            var matchesByID = Dictionary(
-                uniqueKeysWithValues: coarseMatches.map { ($0.asset.localIdentifier, $0) }
-            )
-            for match in refined {
-                matchesByID[match.asset.localIdentifier] = match
-            }
-            finalMatches = Array(matchesByID.values)
-            rerankWallMs = elapsedMs(since: rerankStarted)
-        }
+        let rerankStarted = CFAbsoluteTimeGetCurrent()
+        let qualityShortlist = Array(
+            coarseMatches
+                .sorted(by: isRankedBefore)
+                .prefix(semanticQualityRerankLimit(resultLimit: limit))
+        )
+        let qualityMatches = try await matches(
+            assets: qualityShortlist.map(\.asset),
+            profile: .full,
+            positiveEmbeddings: positiveEmbeddings,
+            negativeEmbeddings: negativeEmbeddings,
+            models: models,
+            metrics: metrics
+        )
 
-        let candidates = finalMatches
+        let rerankWallMs = elapsedMs(since: rerankStarted)
+
+        let candidates = qualityMatches
             .filter {
                 $0.match.positive >= query.minimumSimilarity &&
                 $0.match.margin >= query.minimumMargin
@@ -101,7 +91,7 @@ final class SemanticImageSearchService {
                 fullPassWallMs: fullPassWallMs,
                 rerankWallMs: rerankWallMs,
                 scannedAssetCount: scanAssets.count,
-                shortlistAssetCount: shortlistCount
+                shortlistAssetCount: qualityShortlist.count
             )
         )
     }
@@ -125,12 +115,13 @@ final class SemanticImageSearchService {
         return 2_000
     }
 
-    private func semanticRerankLimit(resultLimit: Int) -> Int {
-        max(64, resultLimit * 8)
+    private func semanticQualityRerankLimit(resultLimit: Int) -> Int {
+        min(128, max(64, resultLimit * 4))
     }
 
-    private func fullMatches(
+    private func matches(
         assets: [PHAsset],
+        profile: ImageEmbeddingProfile,
         positiveEmbeddings: [[Float]],
         negativeEmbeddings: [[Float]],
         models: ChineseCLIPModels,
@@ -149,7 +140,7 @@ final class SemanticImageSearchService {
                     group.addTask {
                         guard let embeddings = try await self.imageEmbeddings(
                             for: asset,
-                            profile: .full,
+                            profile: profile,
                             models: models,
                             metrics: metrics
                         ) else {
@@ -176,59 +167,12 @@ final class SemanticImageSearchService {
         return matches
     }
 
-    private func refinedMatches(
-        coarseMatches: [SemanticAssetMatch],
-        positiveEmbeddings: [[Float]],
-        negativeEmbeddings: [[Float]],
-        models: ChineseCLIPModels,
-        metrics: SemanticSearchMetricsCollector
-    ) async throws -> [SemanticAssetMatch] {
-        var matches: [SemanticAssetMatch] = []
-        let batchSize = 2
-
-        for batchStart in stride(from: 0, to: coarseMatches.count, by: batchSize) {
-            if Task.isCancelled { break }
-            let batchEnd = min(batchStart + batchSize, coarseMatches.count)
-            let batch = Array(coarseMatches[batchStart..<batchEnd])
-
-            try await withThrowingTaskGroup(of: SemanticAssetMatch.self) { group in
-                for coarseMatch in batch {
-                    group.addTask {
-                        guard let embeddings = try await self.imageEmbeddings(
-                            for: coarseMatch.asset,
-                            profile: .regions,
-                            models: models,
-                            metrics: metrics
-                        ) else {
-                            return coarseMatch
-                        }
-                        return SemanticAssetMatch(
-                            asset: coarseMatch.asset,
-                            match: self.bestMatch(
-                                embeddings: embeddings,
-                                positiveEmbeddings: positiveEmbeddings,
-                                negativeEmbeddings: negativeEmbeddings,
-                                initial: coarseMatch.match
-                            )
-                        )
-                    }
-                }
-
-                for try await match in group {
-                    matches.append(match)
-                }
-            }
-        }
-        return matches
-    }
-
     private func bestMatch(
         embeddings: [NamedEmbedding],
         positiveEmbeddings: [[Float]],
-        negativeEmbeddings: [[Float]],
-        initial: SemanticMatchScore? = nil
+        negativeEmbeddings: [[Float]]
     ) -> SemanticMatchScore {
-        var bestMatch = initial ?? SemanticMatchScore(
+        var bestMatch = SemanticMatchScore(
             positive: -1,
             negative: -1,
             margin: -.infinity,
@@ -374,44 +318,55 @@ final class SemanticImageSearchService {
     }
 
     private func requestImage(asset: PHAsset, profile: ImageEmbeddingProfile) async -> UIImage? {
-        await withCheckedContinuation { continuation in
-            let lock = NSLock()
-            var didResume = false
+        let manager = PHImageManager.default()
+        let state = PhotoImageRequestState()
+        return await withTaskCancellationHandler(operation: {
+            await withCheckedContinuation { continuation in
+                guard state.install(continuation) else { return }
+                let options = PHImageRequestOptions()
+                switch profile {
+                case .coarse:
+                    options.deliveryMode = .fastFormat
+                    options.resizeMode = .fast
+                case .full:
+                    options.deliveryMode = .highQualityFormat
+                    options.resizeMode = .exact
+                }
+                options.version = .current
+                options.isNetworkAccessAllowed = false
 
-            func resumeOnce(_ image: UIImage?) {
-                lock.lock()
-                defer { lock.unlock() }
-                guard !didResume else { return }
-                didResume = true
-                continuation.resume(returning: image)
+                let requestID = manager.requestImage(
+                    for: asset,
+                    targetSize: CGSize(width: profile.requestSide, height: profile.requestSide),
+                    contentMode: .aspectFit,
+                    options: options
+                ) { image, info in
+                    if let cancelled = info?[PHImageCancelledKey] as? Bool, cancelled {
+                        state.complete(nil)
+                        return
+                    }
+                    if info?[PHImageErrorKey] != nil {
+                        state.complete(nil)
+                        return
+                    }
+                    if let degraded = info?[PHImageResultIsDegradedKey] as? Bool, degraded {
+                        if profile == .coarse {
+                            state.complete(image)
+                        }
+                        return
+                    }
+                    state.complete(image)
+                }
+                state.bind(requestID: requestID, manager: manager)
+                DispatchQueue.global(qos: .utility).asyncAfter(
+                    deadline: .now() + profile.requestTimeout
+                ) {
+                    state.cancel()
+                }
             }
-
-            let options = PHImageRequestOptions()
-            options.deliveryMode = .highQualityFormat
-            options.resizeMode = .exact
-            options.version = .current
-            options.isNetworkAccessAllowed = false
-
-            PHImageManager.default().requestImage(
-                for: asset,
-                targetSize: CGSize(width: profile.requestSide, height: profile.requestSide),
-                contentMode: .aspectFit,
-                options: options
-            ) { image, info in
-                if let cancelled = info?[PHImageCancelledKey] as? Bool, cancelled {
-                    resumeOnce(nil)
-                    return
-                }
-                if info?[PHImageErrorKey] != nil {
-                    resumeOnce(nil)
-                    return
-                }
-                if let degraded = info?[PHImageResultIsDegradedKey] as? Bool, degraded {
-                    return
-                }
-                resumeOnce(image)
-            }
-        }
+        }, onCancel: {
+            state.cancel()
+        })
     }
 
     private func imageTensors(
@@ -425,18 +380,9 @@ final class SemanticImageSearchService {
         let targetSize = CGSize(width: ChineseCLIPModelContract.imageSize, height: ChineseCLIPModelContract.imageSize)
         var views: [(String, CIImage)] = []
         switch profile {
-        case .full:
+        case .coarse, .full:
             if let full = sourceImage.resizeBicubic(size: targetSize) {
                 views.append(("full", full))
-            }
-        case .regions:
-            if let center = sourceImage.cropToSquare(at: .center)?.resizeBicubic(size: targetSize) {
-                views.append(("center", center))
-            }
-            for anchor in RegionAnchor.cornerAnchors {
-                if let crop = sourceImage.cropToSquare(at: anchor)?.resizeBicubic(size: targetSize) {
-                    views.append((anchor.rawValue, crop))
-                }
             }
         }
 
@@ -635,7 +581,7 @@ private enum ChineseCLIPModelContract {
     static let imageModelName = "chinese_clip_rn50_image"
     static let imageSize = 224
     static let embeddingDimensions = 1_024
-    static let profile = "chinese-clip-rn50-b196ee3e-fp16-preprocess-v2-quality-v1-crops-v1"
+    static let profile = "chinese-clip-rn50-b196ee3e-fp16-preprocess-v2-two-stage-quality-v1"
 }
 
 private enum ChineseCLIPError: LocalizedError {
@@ -715,7 +661,6 @@ private enum SemanticQueryPlanner {
         return SemanticQuery(
             positivePrompts: orderedUnique([subject]),
             negativePrompts: orderedUnique(negativePrompts),
-            needsRegionScan: !wantsCat && !wantsDog,
             minimumSimilarity: ChineseCLIPRN50Config.minimumSimilarity,
             minimumMargin: wantsScreen && !wantsGame
                 ? ChineseCLIPRN50Config.screenshotMinimumMargin
@@ -750,7 +695,6 @@ private enum SemanticQueryPlanner {
 private struct SemanticQuery {
     let positivePrompts: [String]
     let negativePrompts: [String]
-    let needsRegionScan: Bool
     let minimumSimilarity: Float
     let minimumMargin: Float
 }
@@ -771,20 +715,94 @@ private struct NamedEmbedding: Codable {
 }
 
 private enum ImageEmbeddingProfile: String, Codable, Equatable {
+    case coarse
     case full
-    case regions
 
     var requestSide: Int {
-        self == .full ? 512 : 900
+        switch self {
+        case .coarse:
+            return 256
+        case .full:
+            return 512
+        }
     }
 
     var expectedNames: Set<String> {
-        switch self {
-        case .full:
-            return ["full"]
-        case .regions:
-            return ["center", "top-left", "top-right", "bottom-left", "bottom-right"]
+        ["full"]
+    }
+
+    var requestTimeout: TimeInterval {
+        self == .coarse ? 1.0 : 3.0
+    }
+}
+
+private final class PhotoImageRequestState {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<UIImage?, Never>?
+    private var requestID = PHInvalidImageRequestID
+    private weak var manager: PHImageManager?
+    private var isCompleted = false
+
+    func install(_ continuation: CheckedContinuation<UIImage?, Never>) -> Bool {
+        lock.lock()
+        if isCompleted {
+            lock.unlock()
+            continuation.resume(returning: nil)
+            return false
         }
+        self.continuation = continuation
+        lock.unlock()
+        return true
+    }
+
+    func bind(requestID: PHImageRequestID, manager: PHImageManager) {
+        lock.lock()
+        if isCompleted {
+            lock.unlock()
+            manager.cancelImageRequest(requestID)
+            return
+        }
+        self.requestID = requestID
+        self.manager = manager
+        lock.unlock()
+    }
+
+    func complete(_ image: UIImage?) {
+        let continuation: CheckedContinuation<UIImage?, Never>?
+        lock.lock()
+        guard !isCompleted else {
+            lock.unlock()
+            return
+        }
+        isCompleted = true
+        continuation = self.continuation
+        self.continuation = nil
+        manager = nil
+        lock.unlock()
+        continuation?.resume(returning: image)
+    }
+
+    func cancel() {
+        let continuation: CheckedContinuation<UIImage?, Never>?
+        let manager: PHImageManager?
+        let requestID: PHImageRequestID
+        lock.lock()
+        guard !isCompleted else {
+            lock.unlock()
+            return
+        }
+        isCompleted = true
+        continuation = self.continuation
+        self.continuation = nil
+        manager = self.manager
+        self.manager = nil
+        requestID = self.requestID
+        lock.unlock()
+
+        if requestID != PHInvalidImageRequestID {
+            manager?.cancelImageRequest(requestID)
+        }
+        continuation?.resume(returning: nil)
     }
 }
 
@@ -944,7 +962,7 @@ private final class ImageEmbeddingStore {
         guard !embeddings.isEmpty,
               Set(names).count == names.count,
               Set(names).isSubset(of: profile.expectedNames),
-              (profile != .full || names == ["full"]) else {
+              names == ["full"] else {
             return false
         }
         return embeddings.allSatisfy { embedding in
@@ -974,8 +992,8 @@ private final class SemanticSearchMetricsCollector {
     private var corruptCacheEvictions = 0
     private var cacheStorageUnavailable = 0
     private var imageRequestFailures = 0
-    private var fullPredictionCount = 0
-    private var regionPredictionCount = 0
+    private var coarsePredictionCount = 0
+    private var qualityPredictionCount = 0
 
     func recordMemoryHit() {
         withLock { memoryCacheHits += 1 }
@@ -1004,10 +1022,10 @@ private final class SemanticSearchMetricsCollector {
     func recordPredictions(profile: ImageEmbeddingProfile, count: Int) {
         withLock {
             switch profile {
+            case .coarse:
+                coarsePredictionCount += count
             case .full:
-                fullPredictionCount += count
-            case .regions:
-                regionPredictionCount += count
+                qualityPredictionCount += count
             }
         }
     }
@@ -1035,8 +1053,8 @@ private final class SemanticSearchMetricsCollector {
             corruptCacheEvictions: corruptCacheEvictions,
             cacheStorageUnavailable: cacheStorageUnavailable,
             imageRequestFailures: imageRequestFailures,
-            fullPredictionCount: fullPredictionCount,
-            regionPredictionCount: regionPredictionCount
+            coarsePredictionCount: coarsePredictionCount,
+            qualityPredictionCount: qualityPredictionCount
         )
     }
 
@@ -1059,52 +1077,11 @@ private struct SemanticMatchScore {
     let cropName: String
 }
 
-private enum RegionAnchor: String {
-    case center
-    case topLeft = "top-left"
-    case topRight = "top-right"
-    case bottomLeft = "bottom-left"
-    case bottomRight = "bottom-right"
-
-    static let cornerAnchors: [RegionAnchor] = [.topLeft, .topRight, .bottomLeft, .bottomRight]
-}
-
 private extension CIImage {
     func translatedToOrigin() -> CIImage {
         transformed(
             by: CGAffineTransform(translationX: -extent.origin.x, y: -extent.origin.y)
         )
-    }
-
-    func cropToSquare(at anchor: RegionAnchor) -> CIImage? {
-        guard extent.width > 0, extent.height > 0 else {
-            return nil
-        }
-        let size = min(extent.width, extent.height)
-        let x: CGFloat
-        let y: CGFloat
-
-        switch anchor {
-        case .center:
-            x = round((extent.width - size) / 2)
-            y = round((extent.height - size) / 2)
-        case .topLeft:
-            x = 0
-            y = max(0, extent.height - size)
-        case .topRight:
-            x = max(0, extent.width - size)
-            y = max(0, extent.height - size)
-        case .bottomLeft:
-            x = 0
-            y = 0
-        case .bottomRight:
-            x = max(0, extent.width - size)
-            y = 0
-        }
-
-        let rect = CGRect(x: x, y: y, width: size, height: size)
-        return cropped(to: rect)
-            .transformed(by: CGAffineTransform(translationX: -x, y: -y))
     }
 
     func resizeBicubic(size targetSize: CGSize) -> CIImage? {

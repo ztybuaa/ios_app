@@ -168,26 +168,41 @@ def validate_chinese_clip_flow():
     require("static let screenshotMinimumMargin: Float = 0.011" in semantic_search, "screenshot margin threshold is not calibrated")
     require("static let defaultMinimumMargin: Float = 0.012" in semantic_search, "default margin threshold is not calibrated")
     require(
-        "options.deliveryMode = .highQualityFormat" in semantic_search,
-        "semantic embeddings must use high-quality Photos thumbnails",
+        "case .coarse:" in semantic_search
+        and "options.deliveryMode = .fastFormat" in semantic_search
+        and "case .full:" in semantic_search
+        and "options.deliveryMode = .highQualityFormat" in semantic_search,
+        "semantic retrieval must separate fast coarse images from high-quality final images",
     )
     require(
         "PHImageResultIsDegradedKey" in semantic_search,
-        "semantic embeddings must reject degraded Photos callbacks",
+        "semantic retrieval must distinguish degraded Photos callbacks",
     )
     require(
-        "preprocess-v2-quality-v1" in semantic_search,
+        "preprocess-v2-two-stage-quality-v1" in semantic_search,
         "semantic embedding cache namespace must invalidate low-quality thumbnails",
     )
     require(
-        "verifiedSemanticCandidates" in media_resource
-        and "requiresSemanticVerification" in media_resource,
-        "semantic retrieval must use query-planned Vision verification",
+        "qualityShortlist.map(\\.asset)" in semantic_search
+        and "profile: .coarse" in semantic_search
+        and "profile: .full" in semantic_search
+        and "let candidates = qualityMatches" in semantic_search,
+        "semantic retrieval must rank only candidates recomputed from high-quality images",
     )
     require(
-        "PHImageResultIsDegradedKey" in media_resource
-        and "orientation: orientation" in media_resource,
-        "Vision verification must use final thumbnails with the correct orientation",
+        "verifiedSemanticCandidates" not in media_resource
+        and "requiresSemanticVerification" not in media_resource,
+        "query-specific Vision verification must not bypass the general semantic pipeline",
+    )
+    require(
+        "PhotoImageRequestState" in semantic_search
+        and "withTaskCancellationHandler" in semantic_search
+        and "profile.requestTimeout" in semantic_search,
+        "PhotoKit requests must finish on cancellation or timeout",
+    )
+    require(
+        "orientation: orientation" in media_resource,
+        "Vision analysis must preserve image orientation",
     )
     require("try?" not in semantic_search, "semantic model errors must not be silently discarded")
     require("static let contextLength = 52" in tokenizer, "tokenizer context length must be 52")
@@ -226,6 +241,14 @@ def validate_github_actions():
     require("xcrun --sdk iphoneos --show-sdk-version" in workflow_text, "workflow should report the selected iOS SDK")
     require("scripts/ci/build_unsigned_ipa.sh" in workflow_text, "workflow should call IPA build script")
     require("scripts/eval_chinese_clip_rn50.py" in workflow_text, "workflow should run semantic retrieval evaluation")
+    require(
+        "scripts/validate_chinese_clip_multiclass_quality.py" in workflow_text,
+        "workflow should run multiclass quality and shortlist recall gates",
+    )
+    require(
+        "scripts/validate_semantic_search_performance.py" in workflow_text,
+        "workflow should enforce the bounded two-stage performance policy",
+    )
     require("scripts/diagnose_rn50_precision.py" in workflow_text, "workflow should run semantic precision stress tests")
     require("actions/upload-artifact@v4" in workflow_text, "workflow should upload IPA artifact")
     require("CODE_SIGNING_ALLOWED=NO" in script_text, "unsigned build should disable code signing")

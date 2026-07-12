@@ -20,8 +20,7 @@ try {
 
     Write-Host ""
     Write-Host "== Semantic indexing performance policy =="
-    & $VenvPython "scripts\validate_semantic_search_performance.py" --query-profile cat
-    & $VenvPython "scripts\validate_semantic_search_performance.py" --query-profile regional
+    & $VenvPython "scripts\validate_semantic_search_performance.py"
 
     Write-Host ""
     Write-Host "== Semantic image eval fixtures =="
@@ -38,6 +37,10 @@ try {
     Write-Host ""
     Write-Host "== Native Chinese semantic image retrieval =="
     & $VenvPython "scripts\eval_chinese_clip_rn50.py"
+
+    Write-Host ""
+    Write-Host "== Multiclass quality and shortlist recall =="
+    & $VenvPython "scripts\validate_chinese_clip_multiclass_quality.py"
 
     Write-Host ""
     Write-Host "== Cat precision stress set =="

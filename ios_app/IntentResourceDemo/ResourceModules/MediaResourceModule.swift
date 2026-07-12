@@ -25,23 +25,14 @@ final class MediaResourceModule {
         let assetList = (0..<assets.count).map { assets.object(at: $0) }
         if kind == .photo,
            plan.hasSearchTerm {
-            let semanticLimit = plan.requiresSemanticVerification
-                ? semanticVerificationLimit(resultLimit: limit)
-                : limit
             let semanticOutcome = try await SemanticImageSearchService.shared.search(
                 assets: assetList,
                 kind: kind,
                 slots: slots,
-                limit: semanticLimit
-            )
-            let candidates = await verifiedSemanticCandidates(
-                semanticOutcome.candidates,
-                assets: assetList,
-                plan: plan,
-                resultLimit: limit
+                limit: limit
             )
             return MediaSearchOutcome(
-                candidates: candidates,
+                candidates: semanticOutcome.candidates,
                 semanticMetrics: semanticOutcome.metrics
             )
         }
@@ -97,70 +88,6 @@ final class MediaResourceModule {
             return 2_500
         }
         return scanLimit(for: plan, resultLimit: resultLimit)
-    }
-
-    private func semanticVerificationLimit(resultLimit: Int) -> Int {
-        max(32, resultLimit * 4)
-    }
-
-    private func verifiedSemanticCandidates(
-        _ candidates: [ResourceCandidate],
-        assets: [PHAsset],
-        plan: MediaQueryPlan,
-        resultLimit: Int
-    ) async -> [ResourceCandidate] {
-        guard plan.requiresSemanticVerification else {
-            return Array(candidates.prefix(resultLimit))
-        }
-
-        let assetsByID = Dictionary(uniqueKeysWithValues: assets.map { ($0.localIdentifier, $0) })
-        var verified: [(index: Int, candidate: ResourceCandidate)] = []
-        let batchSize = 4
-
-        for batchStart in stride(from: 0, to: candidates.count, by: batchSize) {
-            if Task.isCancelled { break }
-            let batchEnd = min(batchStart + batchSize, candidates.count)
-
-            await withTaskGroup(of: (Int, ResourceCandidate?).self) { group in
-                for index in batchStart..<batchEnd {
-                    let candidate = candidates[index]
-                    guard let asset = assetsByID[candidate.id] else { continue }
-                    group.addTask {
-                        let vision = await self.visionResult(for: asset, plan: plan)
-                        let evidenceScore = self.score(asset: asset, vision: vision, plan: plan)
-                        guard evidenceScore > 0 else {
-                            return (index, nil)
-                        }
-                        return (
-                            index,
-                            ResourceCandidate(
-                                id: candidate.id,
-                                kind: candidate.kind,
-                                title: candidate.title,
-                                subtitle: candidate.subtitle,
-                                detail: candidate.detail + "；Vision证据：" + self.detailText(for: vision),
-                                score: candidate.score,
-                                debugInfo: candidate.debugInfo + "; verified by query-planned Vision evidence"
-                            )
-                        )
-                    }
-                }
-
-                for await item in group {
-                    if let candidate = item.1 {
-                        verified.append((index: item.0, candidate: candidate))
-                    }
-                }
-            }
-            if verified.count >= resultLimit {
-                break
-            }
-        }
-
-        return verified
-            .sorted { $0.index < $1.index }
-            .prefix(resultLimit)
-            .map(\.candidate)
     }
 
     private func shouldIncludeCandidate(score: Double, plan: MediaQueryPlan) -> Bool {
@@ -311,9 +238,8 @@ final class MediaResourceModule {
             }
 
             let options = PHImageRequestOptions()
-            options.deliveryMode = .highQualityFormat
-            options.resizeMode = .exact
-            options.version = .current
+            options.deliveryMode = plan.needsFineVisualSearch ? .highQualityFormat : .fastFormat
+            options.resizeMode = .fast
             options.isNetworkAccessAllowed = false
 
             let size = plan.needsFineVisualSearch ? CGSize(width: 1024, height: 1024) : CGSize(width: 768, height: 768)
@@ -329,9 +255,6 @@ final class MediaResourceModule {
                 }
                 if info?[PHImageErrorKey] != nil {
                     resumeOnce(nil)
-                    return
-                }
-                if let degraded = info?[PHImageResultIsDegradedKey] as? Bool, degraded {
                     return
                 }
                 resumeOnce(image)
@@ -595,10 +518,6 @@ private struct MediaQueryPlan {
 
     var needsVision: Bool {
         needsAnimalDetection || needsHumanDetection || needsTextRecognition || needsClassification
-    }
-
-    var requiresSemanticVerification: Bool {
-        animalQuery != nil || wantsHuman || wantsScreenshot || wantsGame
     }
 
     var needsFineVisualSearch: Bool {

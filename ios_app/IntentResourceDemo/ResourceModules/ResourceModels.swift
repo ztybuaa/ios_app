@@ -41,8 +41,8 @@ struct SemanticSearchMetrics {
     let corruptCacheEvictions: Int
     let cacheStorageUnavailable: Int
     let imageRequestFailures: Int
-    let fullPredictionCount: Int
-    let regionPredictionCount: Int
+    let coarsePredictionCount: Int
+    let qualityPredictionCount: Int
 }
 
 struct IndexedResourceItem: Codable, Identifiable {

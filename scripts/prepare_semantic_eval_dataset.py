@@ -4,8 +4,7 @@ import time
 import urllib.request
 from pathlib import Path
 
-import cv2
-import numpy as np
+from PIL import Image, ImageDraw, ImageFont
 
 from env_guard import ensure_project_venv
 
@@ -53,48 +52,48 @@ def generate_game_screenshot(destination: Path) -> None:
         return
     destination.parent.mkdir(parents=True, exist_ok=True)
 
-    canvas = np.zeros((900, 540, 3), dtype=np.uint8)
-    canvas[:] = (24, 18, 34)
+    canvas = Image.new("RGB", (540, 900), (34, 18, 54))
+    draw = ImageDraw.Draw(canvas)
+    title_font = ImageFont.load_default(size=42)
+    label_font = ImageFont.load_default(size=24)
+    button_font = ImageFont.load_default(size=30)
 
-    for y in range(canvas.shape[0]):
-        color = int(30 + 40 * y / canvas.shape[0])
-        canvas[y, :, 0] = np.clip(canvas[y, :, 0] + color, 0, 255)
+    for y in range(canvas.height):
+        blue = min(255, 54 + int(40 * y / canvas.height))
+        draw.line((0, y, canvas.width, y), fill=(34, 18, blue))
 
-    cv2.rectangle(canvas, (0, 0), (540, 120), (42, 32, 68), -1)
-    cv2.putText(canvas, "BATTLE QUEST", (38, 72), cv2.FONT_HERSHEY_SIMPLEX, 1.45, (245, 238, 180), 3)
-    cv2.putText(canvas, "LEVEL 12", (350, 107), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (140, 220, 255), 2)
+    draw.rectangle((0, 0, 540, 120), fill=(68, 32, 42))
+    draw.text((38, 28), "BATTLE QUEST", font=title_font, fill=(180, 238, 245))
+    draw.text((350, 82), "LEVEL 12", font=label_font, fill=(255, 220, 140))
 
-    cv2.rectangle(canvas, (38, 150), (502, 490), (52, 76, 108), -1)
-    cv2.rectangle(canvas, (58, 180), (215, 430), (70, 120, 178), -1)
-    cv2.rectangle(canvas, (325, 180), (482, 430), (118, 72, 102), -1)
-    cv2.circle(canvas, (136, 270), 52, (80, 205, 255), -1)
-    cv2.circle(canvas, (404, 270), 52, (250, 110, 110), -1)
-    cv2.line(canvas, (225, 300), (315, 245), (255, 230, 105), 8)
-    cv2.line(canvas, (235, 345), (318, 345), (255, 230, 105), 8)
+    draw.rectangle((38, 150, 502, 490), fill=(108, 76, 52))
+    draw.rectangle((58, 180, 215, 430), fill=(178, 120, 70))
+    draw.rectangle((325, 180, 482, 430), fill=(102, 72, 118))
+    draw.ellipse((84, 218, 188, 322), fill=(255, 205, 80))
+    draw.ellipse((352, 218, 456, 322), fill=(110, 110, 250))
+    draw.line((225, 300, 315, 245), fill=(105, 230, 255), width=8)
+    draw.line((235, 345, 318, 345), fill=(105, 230, 255), width=8)
 
-    cv2.rectangle(canvas, (45, 520), (495, 560), (55, 55, 72), -1)
-    cv2.rectangle(canvas, (45, 520), (360, 560), (70, 190, 95), -1)
-    cv2.putText(canvas, "HP 76/100", (62, 548), cv2.FONT_HERSHEY_SIMPLEX, 0.72, (255, 255, 255), 2)
+    draw.rectangle((45, 520, 495, 560), fill=(72, 55, 55))
+    draw.rectangle((45, 520, 360, 560), fill=(95, 190, 70))
+    draw.text((62, 526), "HP 76/100", font=label_font, fill="white")
 
-    cv2.rectangle(canvas, (45, 595), (245, 690), (65, 100, 180), -1)
-    cv2.rectangle(canvas, (295, 595), (495, 690), (160, 80, 80), -1)
-    cv2.putText(canvas, "ATTACK", (83, 655), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
-    cv2.putText(canvas, "SKILL", (355, 655), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
+    draw.rectangle((45, 595, 245, 690), fill=(180, 100, 65))
+    draw.rectangle((295, 595, 495, 690), fill=(80, 80, 160))
+    draw.text((83, 625), "ATTACK", font=button_font, fill="white")
+    draw.text((355, 625), "SKILL", font=button_font, fill="white")
 
-    cv2.rectangle(canvas, (30, 735), (510, 850), (38, 35, 52), -1)
-    cv2.putText(canvas, "VICTORY REWARD", (68, 790), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 220, 120), 2)
-    cv2.putText(canvas, "coins 1280   rank S", (68, 830), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (210, 230, 255), 2)
-
-    success, encoded = cv2.imencode(".png", canvas)
-    if not success:
-        raise SystemExit(f"Failed to encode generated image: {destination}")
-    encoded.tofile(destination)
+    draw.rectangle((30, 735, 510, 850), fill=(52, 35, 38))
+    draw.text((68, 760), "VICTORY REWARD", font=button_font, fill=(120, 220, 255))
+    draw.text((68, 812), "coins 1280   rank S", font=label_font, fill=(255, 230, 210))
+    canvas.save(destination, format="PNG")
 
 
 def validate_image(path: Path) -> None:
-    payload = np.fromfile(path, dtype=np.uint8)
-    image = cv2.imdecode(payload, cv2.IMREAD_COLOR)
-    if image is None:
+    try:
+        with Image.open(path) as image:
+            image.verify()
+    except (OSError, ValueError) as error:
         raise SystemExit(f"Invalid image fixture: {path}")
 
 
@@ -104,7 +103,7 @@ def main() -> None:
 
     for image in manifest["images"]:
         destination = IMAGE_ROOT / image["file"]
-        if image.get("generated") == "opencv":
+        if image.get("generated") == "pillow":
             generate_game_screenshot(destination)
         elif "url" in image:
             download(image["url"], destination)

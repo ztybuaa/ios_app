@@ -74,7 +74,7 @@
     {
       "id": "game_screenshot",
       "file": "synthetic-game-screenshot.png",
-      "generated": "opencv",
+      "generated": "pillow",
       "description": "Synthetic mobile game interface screenshot generated locally.",
       "tags": ["game", "screenshot", "interface"]
     }

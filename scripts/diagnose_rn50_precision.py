@@ -94,16 +94,7 @@ def ensure_cifar100() -> None:
     partial_path.replace(CIFAR_PATH)
 
 
-def ensure_coco_images() -> None:
-    expected_images_ready = all(
-        (COCO_IMAGE_ROOT / f"{image_id}.jpg").is_file()
-        and (COCO_IMAGE_ROOT / f"{image_id}.jpg").stat().st_size == expected_bytes
-        and file_sha256(COCO_IMAGE_ROOT / f"{image_id}.jpg") == expected_sha256
-        for image_id, (_, expected_bytes, expected_sha256) in COCO_IMAGES.items()
-    )
-    if expected_images_ready:
-        return
-
+def ensure_coco_archive() -> None:
     if not (
         COCO_ARCHIVE_PATH.is_file()
         and COCO_ARCHIVE_PATH.stat().st_size == COCO_ARCHIVE_BYTES
@@ -124,6 +115,19 @@ def ensure_coco_images() -> None:
                 f"bytes={actual_bytes} sha256={actual_sha256}"
             )
         partial_path.replace(COCO_ARCHIVE_PATH)
+
+
+def ensure_coco_images() -> None:
+    expected_images_ready = all(
+        (COCO_IMAGE_ROOT / f"{image_id}.jpg").is_file()
+        and (COCO_IMAGE_ROOT / f"{image_id}.jpg").stat().st_size == expected_bytes
+        and file_sha256(COCO_IMAGE_ROOT / f"{image_id}.jpg") == expected_sha256
+        for image_id, (_, expected_bytes, expected_sha256) in COCO_IMAGES.items()
+    )
+    if expected_images_ready:
+        return
+
+    ensure_coco_archive()
 
     COCO_IMAGE_ROOT.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(COCO_ARCHIVE_PATH) as archive:

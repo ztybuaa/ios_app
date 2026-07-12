@@ -95,7 +95,7 @@ def normalized(features: torch.Tensor) -> torch.Tensor:
 
 
 def evaluate_mode(model, preprocess, clip, manifest: dict, exact_ios_views: bool) -> dict:
-    mode_name = "ios_exact_views" if exact_ios_views else "full_only"
+    mode_name = "six_view_stress" if exact_ios_views else "app_full_quality"
     tensors = []
     image_view_metadata: list[tuple[str, str]] = []
 
@@ -248,17 +248,17 @@ def write_markdown(report: dict) -> None:
             f"{mode['falsePositiveCount']} | {'通过' if mode['passed'] else '失败'} |"
         )
 
-    exact_mode = next(mode for mode in report["modes"] if mode["mode"] == "ios_exact_views")
+    stress_mode = next(mode for mode in report["modes"] if mode["mode"] == "six_view_stress")
     lines.extend(
         [
             "",
-            "## iOS 六视图明细",
+            "## 六视图压力测试明细",
             "",
             "| 查询 | 通过候选 | Top-3 |",
             "|---|---|---|",
         ]
     )
-    for query in exact_mode["queries"]:
+    for query in stress_mode["queries"]:
         passing = ", ".join(
             f"{candidate['imageID']} ({candidate['view']}, m={candidate['margin']:.4f})"
             for candidate in query["passing"]
