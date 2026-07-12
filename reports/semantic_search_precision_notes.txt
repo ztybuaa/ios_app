@@ -1,0 +1,48 @@
+Semantic search precision investigation - 2026-07-12
+
+Task
+- Model: Chinese-CLIP RN50 FP16 on iOS.
+- Goal: improve semantic photo retrieval precision without query-specific patches.
+- Constraints: keep on-device inference, preserve recall, and avoid runtime translation.
+
+Observed device failures
+- Five unrelated or near-class photos passed the cat query gate.
+- Reported positive/margin pairs were 0.540/0.042, 0.521/0.040,
+  0.517/0.025, 0.485/0.022, and 0.497/0.016.
+- Raising the global threshold is invalid because the known cat fixture scores
+  about 0.523 positive and 0.035 margin.
+
+Experiments
+1. Official PyTorch replay on clear screenshot crops rejected the five examples.
+2. Low-resolution thumbnail simulation changed several clear rejections into
+   accepted false positives; the highest-ranked wolf and pixel-art examples
+   reproduced consistently. This isolates thumbnail quality as a general input
+   contract failure rather than a cat prompt issue.
+3. Swift and official Python token IDs matched for all 23 configured prompts,
+   ruling out tokenizer drift.
+4. A read-only 10-query COCO128 harness exposed weak open-set precision beyond
+   cats: Top-1 was 7/10 and thresholded aggregate precision was 0.712.
+
+Implementation
+- Require final, non-degraded, exact Photos thumbnails before embedding or
+  Vision verification.
+- Bump the embedding cache namespace so low-quality persisted vectors are not
+  reused.
+- Use RN50 as a high-recall shortlist generator for query types with independent
+  Vision evidence, then verify animal, human, screenshot, and game queries before
+  returning results.
+- Preserve RN50 behavior for unsupported open-set queries instead of adding
+  silent or category-specific fallbacks.
+- Run the semantic regression and precision stress suites in the IPA workflow.
+
+Validation
+- scripts/validate_ios_project.py: PASS
+- scripts/eval_chinese_clip_rn50.py: PASS, 6/6 precision gates, 0 false positives
+- scripts/diagnose_rn50_precision.py: PASS, 177 images, 0 false positives
+- scripts/validate_semantic_search_performance.py: PASS, 83.3% fewer predictions
+  than exhaustive six-view indexing for 2,000 assets
+
+Remaining validation
+- macOS CI must compile the Swift changes and build the unsigned IPA.
+- Device testing must confirm Photos callback quality, Vision verifier latency,
+  cat recall, and unrelated-image rejection on the real photo library.

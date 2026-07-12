@@ -26,6 +26,7 @@ CI_BUILD_SCRIPT = ROOT / "scripts" / "ci" / "build_unsigned_ipa.sh"
 DEMO_VIEW_MODEL = APP_ROOT / "App" / "DemoViewModel.swift"
 CONTENT_VIEW = APP_ROOT / "Views" / "ContentView.swift"
 SEMANTIC_SEARCH = APP_ROOT / "ResourceModules" / "SemanticImageSearchService.swift"
+MEDIA_RESOURCE = APP_ROOT / "ResourceModules" / "MediaResourceModule.swift"
 CHINESE_CLIP_TOKENIZER = APP_ROOT / "NLP" / "Tokenizer" / "ChineseCLIPTokenizer.swift"
 
 SWIFT_FILES = [
@@ -150,6 +151,7 @@ def validate_chinese_clip_flow():
     content_view = CONTENT_VIEW.read_text(encoding="utf-8")
     view_model = DEMO_VIEW_MODEL.read_text(encoding="utf-8")
     semantic_search = SEMANTIC_SEARCH.read_text(encoding="utf-8")
+    media_resource = MEDIA_RESOURCE.read_text(encoding="utf-8")
     tokenizer = CHINESE_CLIP_TOKENIZER.read_text(encoding="utf-8")
 
     for obsolete_term in ("import Translation", "TranslationSession", "TranslationDiagnosticSection", "semanticQueryText", "pendingTranslation"):
@@ -165,6 +167,28 @@ def validate_chinese_clip_flow():
     require("static let minimumSimilarity: Float = 0.47" in semantic_search, "Chinese-CLIP similarity threshold is not calibrated")
     require("static let screenshotMinimumMargin: Float = 0.011" in semantic_search, "screenshot margin threshold is not calibrated")
     require("static let defaultMinimumMargin: Float = 0.012" in semantic_search, "default margin threshold is not calibrated")
+    require(
+        "options.deliveryMode = .highQualityFormat" in semantic_search,
+        "semantic embeddings must use high-quality Photos thumbnails",
+    )
+    require(
+        "PHImageResultIsDegradedKey" in semantic_search,
+        "semantic embeddings must reject degraded Photos callbacks",
+    )
+    require(
+        "preprocess-v2-quality-v1" in semantic_search,
+        "semantic embedding cache namespace must invalidate low-quality thumbnails",
+    )
+    require(
+        "verifiedSemanticCandidates" in media_resource
+        and "requiresSemanticVerification" in media_resource,
+        "semantic retrieval must use query-planned Vision verification",
+    )
+    require(
+        "PHImageResultIsDegradedKey" in media_resource
+        and "orientation: orientation" in media_resource,
+        "Vision verification must use final thumbnails with the correct orientation",
+    )
     require("try?" not in semantic_search, "semantic model errors must not be silently discarded")
     require("static let contextLength = 52" in tokenizer, "tokenizer context length must be 52")
     require("static let vocabularySize = 21_128" in tokenizer, "tokenizer vocabulary size must be 21128")
@@ -201,6 +225,8 @@ def validate_github_actions():
     require("DEVELOPER_DIR: /Applications/Xcode_16.3.app/Contents/Developer" in workflow_text, "workflow should pin Xcode 16.3 for iOS 18.4 compatibility")
     require("xcrun --sdk iphoneos --show-sdk-version" in workflow_text, "workflow should report the selected iOS SDK")
     require("scripts/ci/build_unsigned_ipa.sh" in workflow_text, "workflow should call IPA build script")
+    require("scripts/eval_chinese_clip_rn50.py" in workflow_text, "workflow should run semantic retrieval evaluation")
+    require("scripts/diagnose_rn50_precision.py" in workflow_text, "workflow should run semantic precision stress tests")
     require("actions/upload-artifact@v4" in workflow_text, "workflow should upload IPA artifact")
     require("CODE_SIGNING_ALLOWED=NO" in script_text, "unsigned build should disable code signing")
     require("IntentResourceDemo-unsigned.ipa" in script_text, "build script should produce unsigned IPA")

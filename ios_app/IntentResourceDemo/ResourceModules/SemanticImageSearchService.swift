@@ -387,8 +387,9 @@ final class SemanticImageSearchService {
             }
 
             let options = PHImageRequestOptions()
-            options.deliveryMode = profile == .full ? .fastFormat : .highQualityFormat
-            options.resizeMode = profile == .full ? .fast : .exact
+            options.deliveryMode = .highQualityFormat
+            options.resizeMode = .exact
+            options.version = .current
             options.isNetworkAccessAllowed = false
 
             PHImageManager.default().requestImage(
@@ -403,6 +404,9 @@ final class SemanticImageSearchService {
                 }
                 if info?[PHImageErrorKey] != nil {
                     resumeOnce(nil)
+                    return
+                }
+                if let degraded = info?[PHImageResultIsDegradedKey] as? Bool, degraded {
                     return
                 }
                 resumeOnce(image)
@@ -631,7 +635,7 @@ private enum ChineseCLIPModelContract {
     static let imageModelName = "chinese_clip_rn50_image"
     static let imageSize = 224
     static let embeddingDimensions = 1_024
-    static let profile = "chinese-clip-rn50-b196ee3e-fp16-preprocess-v1-crops-v1"
+    static let profile = "chinese-clip-rn50-b196ee3e-fp16-preprocess-v2-quality-v1-crops-v1"
 }
 
 private enum ChineseCLIPError: LocalizedError {
