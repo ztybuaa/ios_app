@@ -13,13 +13,17 @@ jobs:
     name: Build unsigned IPA on macOS
     runs-on: macos-15
     timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_16.3.app/Contents/Developer
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Show Xcode version
-        run: xcodebuild -version
+      - name: Show build toolchain
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
 
       - name: Build unsigned IPA
         run: bash scripts/ci/build_unsigned_ipa.sh

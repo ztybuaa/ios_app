@@ -156,6 +156,8 @@ def validate_github_actions():
     scheme_text = SCHEME_FILE.read_text(encoding="utf-8")
 
     require("runs-on: macos-15" in workflow_text, "workflow should use macOS runner")
+    require("DEVELOPER_DIR: /Applications/Xcode_16.3.app/Contents/Developer" in workflow_text, "workflow should pin Xcode 16.3 for iOS 18.4 compatibility")
+    require("xcrun --sdk iphoneos --show-sdk-version" in workflow_text, "workflow should report the selected iOS SDK")
     require("scripts/ci/build_unsigned_ipa.sh" in workflow_text, "workflow should call IPA build script")
     require("actions/upload-artifact@v4" in workflow_text, "workflow should upload IPA artifact")
     require("CODE_SIGNING_ALLOWED=NO" in script_text, "unsigned build should disable code signing")
