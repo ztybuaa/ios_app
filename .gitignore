@@ -12,3 +12,9 @@ dist/
 DerivedData/
 processed/eval/semantic_image_retrieval/images/
 processed/eval/semantic_image_retrieval/results/
+
+# Large Chinese-CLIP artifacts are downloaded and converted reproducibly.
+external_models/pretrained/chinese_clip_rn50/clip_cn_rn50.pt
+external_models/pretrained/chinese_clip_rn50/source/
+external_models/converted_ios/chinese_clip_rn50_fp16/*.mlpackage/
+ios_app/IntentResourceDemo/Resources/ChineseCLIP/*.mlpackage/
