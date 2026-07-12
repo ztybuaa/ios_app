@@ -161,7 +161,31 @@ private struct SemanticTranslationBridge: ViewModifier {
                 }
 
                 do {
-                    let response = try await session.translate(request.sourceText)
+                    let translationRequests = [
+                        TranslationSession.Request(sourceText: request.sourceText)
+                    ]
+                    let responses = try await session.translations(from: translationRequests)
+
+                    guard responses.count == 1, let response = responses.first else {
+                        let diagnostic = [
+                            "系统批量翻译没有返回唯一响应。",
+                            "translationAPI=batch",
+                            "configuredSource=automatic",
+                            "availability=\(availabilityLabel)",
+                            "request=\(String(reflecting: request.sourceText))",
+                            "responseCount=\(responses.count)"
+                        ].joined(separator: "\n")
+
+                        await MainActor.run {
+                            viewModel.failPendingTranslation(
+                                id: request.id,
+                                message: diagnostic,
+                                stage: "停止：系统翻译响应数量异常"
+                            )
+                        }
+                        return
+                    }
+
                     let translatedText = response.targetText
                         .trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -171,6 +195,7 @@ private struct SemanticTranslationBridge: ViewModifier {
                             .joined(separator: ", ")
                         let diagnostic = [
                             "系统翻译返回空英文结果。",
+                            "translationAPI=batch",
                             "configuredSource=automatic",
                             "availability=\(availabilityLabel)",
                             "request=\(String(reflecting: request.sourceText))",
@@ -203,6 +228,7 @@ private struct SemanticTranslationBridge: ViewModifier {
                     let nsError = error as NSError
                     let diagnostic = [
                         "系统翻译失败。",
+                        "translationAPI=batch",
                         "type=\(String(reflecting: type(of: error)))",
                         "availability=\(availabilityLabel)",
                         "domain=\(nsError.domain)",
