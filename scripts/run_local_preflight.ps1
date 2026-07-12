@@ -11,7 +11,6 @@ if (-not (Test-Path -LiteralPath $VenvPython)) {
     throw "Project virtual environment is missing: $VenvPython"
 }
 
-$env:npm_config_cache = Join-Path $Root "build\npm-cache"
 $env:PYTHONUTF8 = "1"
 
 Push-Location $Root
@@ -20,16 +19,20 @@ try {
     & $VenvPython "scripts\validate_ios_project.py"
 
     Write-Host ""
-    Write-Host "== Node dependencies =="
-    npm install
-
-    Write-Host ""
     Write-Host "== Semantic image eval fixtures =="
     & $VenvPython "scripts\prepare_semantic_eval_dataset.py"
 
     Write-Host ""
-    Write-Host "== MobileCLIP semantic image retrieval =="
-    npm run eval:semantic-images
+    Write-Host "== Chinese-CLIP RN50 evaluation dependencies =="
+    & $VenvPython -m pip install -r "scripts\requirements\chinese_clip_eval.txt"
+
+    Write-Host ""
+    Write-Host "== Verified Chinese-CLIP RN50 source and checkpoint =="
+    & $VenvPython "scripts\download_chinese_clip_rn50.py"
+
+    Write-Host ""
+    Write-Host "== Native Chinese semantic image retrieval =="
+    & $VenvPython "scripts\eval_chinese_clip_rn50.py"
 }
 finally {
     Pop-Location

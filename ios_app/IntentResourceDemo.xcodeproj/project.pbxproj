@@ -28,13 +28,10 @@
 		A00100000000000000000013 /* tiny_intent_slot_model.json in Resources */ = {isa = PBXBuildFile; fileRef = A00200000000000000000013 /* tiny_intent_slot_model.json */; };
 		A00100000000000000000014 /* sample_resource_index.json in Resources */ = {isa = PBXBuildFile; fileRef = A00200000000000000000014 /* sample_resource_index.json */; };
 		A00100000000000000000015 /* SemanticImageSearchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00200000000000000000017 /* SemanticImageSearchService.swift */; };
-		A00100000000000000000016 /* CLIPTokenizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00200000000000000000018 /* CLIPTokenizer.swift */; };
-		A00100000000000000000017 /* GPT2ByteEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00200000000000000000019 /* GPT2ByteEncoder.swift */; };
-		A00100000000000000000018 /* Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0020000000000000000001A /* Utils.swift */; };
-		A00100000000000000000019 /* clip-vocab.json in Resources */ = {isa = PBXBuildFile; fileRef = A0020000000000000000001B /* clip-vocab.json */; };
-		A0010000000000000000001A /* clip-merges.txt in Resources */ = {isa = PBXBuildFile; fileRef = A0020000000000000000001C /* clip-merges.txt */; };
-		A0010000000000000000001B /* mobileclip_s0_image.mlpackage in Sources */ = {isa = PBXBuildFile; fileRef = A0020000000000000000001D /* mobileclip_s0_image.mlpackage */; };
-		A0010000000000000000001C /* mobileclip_s0_text.mlpackage in Sources */ = {isa = PBXBuildFile; fileRef = A0020000000000000000001E /* mobileclip_s0_text.mlpackage */; };
+		A00100000000000000000016 /* ChineseCLIPTokenizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00200000000000000000018 /* ChineseCLIPTokenizer.swift */; };
+		A00100000000000000000019 /* chinese_clip_vocab.txt in Resources */ = {isa = PBXBuildFile; fileRef = A0020000000000000000001B /* chinese_clip_vocab.txt */; };
+		A0010000000000000000001B /* chinese_clip_rn50_image.mlpackage in Sources */ = {isa = PBXBuildFile; fileRef = A0020000000000000000001D /* chinese_clip_rn50_image.mlpackage */; };
+		A0010000000000000000001C /* chinese_clip_rn50_text.mlpackage in Sources */ = {isa = PBXBuildFile; fileRef = A0020000000000000000001E /* chinese_clip_rn50_text.mlpackage */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -61,13 +58,10 @@
 		A00200000000000000000015 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A00200000000000000000016 /* IntentResourceDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = IntentResourceDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A00200000000000000000017 /* SemanticImageSearchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticImageSearchService.swift; sourceTree = "<group>"; };
-		A00200000000000000000018 /* CLIPTokenizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CLIPTokenizer.swift; sourceTree = "<group>"; };
-		A00200000000000000000019 /* GPT2ByteEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GPT2ByteEncoder.swift; sourceTree = "<group>"; };
-		A0020000000000000000001A /* Utils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Utils.swift; sourceTree = "<group>"; };
-		A0020000000000000000001B /* clip-vocab.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "clip-vocab.json"; sourceTree = "<group>"; };
-		A0020000000000000000001C /* clip-merges.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "clip-merges.txt"; sourceTree = "<group>"; };
-		A0020000000000000000001D /* mobileclip_s0_image.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; path = mobileclip_s0_image.mlpackage; sourceTree = "<group>"; };
-		A0020000000000000000001E /* mobileclip_s0_text.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; path = mobileclip_s0_text.mlpackage; sourceTree = "<group>"; };
+		A00200000000000000000018 /* ChineseCLIPTokenizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChineseCLIPTokenizer.swift; sourceTree = "<group>"; };
+		A0020000000000000000001B /* chinese_clip_vocab.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = chinese_clip_vocab.txt; sourceTree = "<group>"; };
+		A0020000000000000000001D /* chinese_clip_rn50_image.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; path = chinese_clip_rn50_image.mlpackage; sourceTree = "<group>"; };
+		A0020000000000000000001E /* chinese_clip_rn50_text.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; path = chinese_clip_rn50_text.mlpackage; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -155,9 +149,8 @@
 			children = (
 				A00200000000000000000013 /* tiny_intent_slot_model.json */,
 				A00200000000000000000014 /* sample_resource_index.json */,
-				A0020000000000000000001B /* clip-vocab.json */,
-				A0020000000000000000001C /* clip-merges.txt */,
-				A0040000000000000000000B /* MobileCLIP */,
+				A0020000000000000000001B /* chinese_clip_vocab.txt */,
+				A0040000000000000000000B /* ChineseCLIP */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -181,20 +174,18 @@
 		A0040000000000000000000A /* Tokenizer */ = {
 			isa = PBXGroup;
 			children = (
-				A00200000000000000000018 /* CLIPTokenizer.swift */,
-				A00200000000000000000019 /* GPT2ByteEncoder.swift */,
-				A0020000000000000000001A /* Utils.swift */,
+				A00200000000000000000018 /* ChineseCLIPTokenizer.swift */,
 			);
 			path = Tokenizer;
 			sourceTree = "<group>";
 		};
-		A0040000000000000000000B /* MobileCLIP */ = {
+		A0040000000000000000000B /* ChineseCLIP */ = {
 			isa = PBXGroup;
 			children = (
-				A0020000000000000000001D /* mobileclip_s0_image.mlpackage */,
-				A0020000000000000000001E /* mobileclip_s0_text.mlpackage */,
+				A0020000000000000000001D /* chinese_clip_rn50_image.mlpackage */,
+				A0020000000000000000001E /* chinese_clip_rn50_text.mlpackage */,
 			);
-			path = MobileCLIP;
+			path = ChineseCLIP;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -258,8 +249,7 @@
 			files = (
 				A00100000000000000000013 /* tiny_intent_slot_model.json in Resources */,
 				A00100000000000000000014 /* sample_resource_index.json in Resources */,
-				A00100000000000000000019 /* clip-vocab.json in Resources */,
-				A0010000000000000000001A /* clip-merges.txt in Resources */,
+				A00100000000000000000019 /* chinese_clip_vocab.txt in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -279,9 +269,7 @@
 				A00100000000000000000007 /* FeatureExtractor.swift in Sources */,
 				A00100000000000000000008 /* SlotNormalizer.swift in Sources */,
 				A00100000000000000000009 /* TinyIntentSlotModel.swift in Sources */,
-				A00100000000000000000016 /* CLIPTokenizer.swift in Sources */,
-				A00100000000000000000017 /* GPT2ByteEncoder.swift in Sources */,
-				A00100000000000000000018 /* Utils.swift in Sources */,
+				A00100000000000000000016 /* ChineseCLIPTokenizer.swift in Sources */,
 				A0010000000000000000000A /* ResourceModels.swift in Sources */,
 				A0010000000000000000000B /* ContactResourceModule.swift in Sources */,
 				A0010000000000000000000C /* FileFolderResourceModule.swift in Sources */,
@@ -292,8 +280,8 @@
 				A00100000000000000000010 /* InferenceView.swift in Sources */,
 				A00100000000000000000011 /* ResourceResultView.swift in Sources */,
 				A00100000000000000000012 /* MetricRow.swift in Sources */,
-				A0010000000000000000001B /* mobileclip_s0_image.mlpackage in Sources */,
-				A0010000000000000000001C /* mobileclip_s0_text.mlpackage in Sources */,
+				A0010000000000000000001B /* chinese_clip_rn50_image.mlpackage in Sources */,
+				A0010000000000000000001C /* chinese_clip_rn50_text.mlpackage in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -420,7 +408,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = IntentResourceDemo/Support/Info.plist;
@@ -429,7 +417,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.5;
+				MARKETING_VERSION = 1.6;
 				PRODUCT_BUNDLE_IDENTIFIER = com.local.IntentResourceDemo;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -442,7 +430,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = IntentResourceDemo/Support/Info.plist;
@@ -451,7 +439,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.5;
+				MARKETING_VERSION = 1.6;
 				PRODUCT_BUNDLE_IDENTIFIER = com.local.IntentResourceDemo;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;

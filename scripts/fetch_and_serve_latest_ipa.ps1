@@ -200,10 +200,9 @@ if (Test-Path -LiteralPath $serverStatePath) {
             Stop-Process -Id ([int]$previousState.pid) -Force
         }
     } catch {
-        Write-Verbose "Could not clean up the previous IPA server: $($_.Exception.Message)"
-    } finally {
-        Remove-Item -LiteralPath $serverStatePath -Force -ErrorAction SilentlyContinue
+        throw "Could not safely clean up the previous IPA server: $($_.Exception.Message)"
     }
+    Remove-Item -LiteralPath $serverStatePath -Force
 }
 
 $port = $null

@@ -7,7 +7,7 @@ final class ResourceSearchService {
     private let media = MediaResourceModule()
     private let files = FileFolderResourceModule()
 
-    func search(intent: String, slots: NormalizedSlots?, semanticQueryText: String? = nil) async -> ResourceSearchResult {
+    func search(intent: String, slots: NormalizedSlots?) async -> ResourceSearchResult {
         let start = CFAbsoluteTimeGetCurrent()
         let memoryBefore = PerformanceMonitor.currentResidentMemoryMB()
 
@@ -63,10 +63,10 @@ final class ResourceSearchService {
             switch intent {
             case "photo":
                 moduleName = "photo"
-                resourceCandidates = try await media.search(kind: .photo, slots: slots, semanticQueryText: semanticQueryText)
+                resourceCandidates = try await media.search(kind: .photo, slots: slots)
             case "video":
                 moduleName = "video"
-                resourceCandidates = try await media.search(kind: .video, slots: slots, semanticQueryText: semanticQueryText)
+                resourceCandidates = try await media.search(kind: .video, slots: slots)
             case "file":
                 moduleName = "file"
                 resourceCandidates = files.search(kind: .file, slots: slots)

@@ -23,7 +23,7 @@ CI 首先运行 `scripts/ci/check_no_large_git_files.sh`。任何达到 100 MiB 
 1. 创建项目根目录下的 `.venv`。
 2. 运行 `scripts/download_chinese_clip_rn50.py`，从 manifest 指定的固定官方 revision 下载 checkpoint 并验证 SHA-256。
 3. 使用 `scripts/requirements/chinese_clip_coreml.txt` 中固定的依赖运行 `scripts/convert_chinese_clip_rn50_coreml.py`。
-4. 缓存已校验的 checkpoint 和转换后的 Core ML 包。
+4. 缓存已校验的 checkpoint 和转换后的 Core ML 包；恢复缓存后逐文件核对 conversion manifest 中的路径、字节数和 SHA-256。
 5. 将两个 Core ML 包复制到 Xcode 资源目录，并用 `--require-generated-models` 验证工程和实际模型包。
 6. 构建未签名 IPA，并对 IPA 运行 ZIP 完整性检查后生成：
    - `IntentResourceDemo-unsigned.ipa`

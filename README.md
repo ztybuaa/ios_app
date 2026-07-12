@@ -138,9 +138,9 @@ docs/
 .\scripts\run_local_preflight.ps1
 ```
 
-这会先使用工程 `.venv` 运行 iOS 工程结构验证，再准备 `processed/eval/semantic_image_retrieval/` 下的小型语义图片评测集，并用 `Xenova/mobileclip_s0` 的 Transformers.js/ONNX 版本在电脑端跑猫、狗、风景、人像、截图、游戏截图等检索回归。评测报告会写入 `processed/eval/semantic_image_retrieval/results/mobileclip_eval_report.json`。
+这会先使用工程 `.venv` 运行 iOS 工程结构验证，再准备 `processed/eval/semantic_image_retrieval/` 下的小型语义图片评测集。首次运行会下载并严格校验官方 Chinese-CLIP RN50 checkpoint 和固定版本源码，然后直接用中文查询跑猫、狗、风景、人像、截图、游戏截图等检索回归。JSON 结果写入 `processed/eval/semantic_image_retrieval/results/chinese_clip_rn50_eval_report.json`，结论归档在 `reports/chinese_clip_rn50_fp16_eval.md`。
 
-Windows 电脑不能直接运行 iOS Simulator；Apple Translation 的真实系统翻译效果也不能在 iOS Simulator 里验证。因此这个预检主要用于在发 IPA 前拦住工程结构错误和语义检索乱排问题，最终权限、相册和系统翻译仍需真机确认。
+Windows 电脑不能直接运行 iOS Simulator，也不能执行 Core ML 模型预测。因此本地预检负责验证模型来源、中文 PyTorch 检索精度和 iOS 工程结构；FP16 Core ML 转换、PyTorch/Core ML 向量一致性和 IPA 构建由 GitHub Actions 的 macOS runner 完成，最终相册权限、检索速度和真实照片效果仍需真机确认。
 
 ## GitHub Actions 打包 IPA
 

@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "model": {
+    "id": "OFA-Sys/chinese-clip-rn50",
+    "family": "Chinese-CLIP",
+    "architecture": "RN50@RBT3-chinese",
+    "officialRepository": "https://github.com/OFA-Sys/Chinese-CLIP",
+    "officialModelPage": "https://huggingface.co/OFA-Sys/chinese-clip-rn50"
+  },
+  "checkpoint": {
+    "path": "external_models/pretrained/chinese_clip_rn50/clip_cn_rn50.pt",
+    "url": "https://huggingface.co/OFA-Sys/chinese-clip-rn50/resolve/717ba215769231e53b9b7c6b9d329b9cc5944418/clip_cn_rn50.pt",
+    "revision": "717ba215769231e53b9b7c6b9d329b9cc5944418",
+    "bytes": 308316425,
+    "sha256": "b196ee3ee528b70be1158ab1aafb1d2f1c801ad2d9ffb3bae31b0d305f82fc88",
+    "downloadedAt": "2026-07-12",
+    "license": {
+      "spdx": "Apache-2.0",
+      "evidence": "https://huggingface.co/OFA-Sys/chinese-clip-rn50/blob/717ba215769231e53b9b7c6b9d329b9cc5944418/README.md"
+    }
+  },
+  "source": {
+    "path": "external_models/pretrained/chinese_clip_rn50/source/Chinese-CLIP",
+    "repository": "https://github.com/OFA-Sys/Chinese-CLIP",
+    "revision": "31863c707501bf1605d36842f43deb78793dbc5d",
+    "archiveUrl": "https://codeload.github.com/OFA-Sys/Chinese-CLIP/zip/31863c707501bf1605d36842f43deb78793dbc5d",
+    "archiveBytes": 2786947,
+    "archiveSha256": "c94c3bb619713f61599f8c6402df9fc8880ef46c55cefa8e8de6ad4550d676d7",
+    "license": {
+      "spdx": "MIT",
+      "file": "external_models/pretrained/chinese_clip_rn50/MIT-LICENSE.txt",
+      "source": "https://github.com/OFA-Sys/Chinese-CLIP/blob/31863c707501bf1605d36842f43deb78793dbc5d/MIT-LICENSE.txt"
+    },
+    "verifiedFiles": {
+      "cn_clip/clip/vocab.txt": "f7863b040bae29ac474065729355252248c92d41141c1e09fbf21dd3e593a238",
+      "cn_clip/clip/model_configs/RN50.json": "8e8a94b0a90a7ad26efa87a7fe2cc5e7bb49a911b5b6992389cbe460655d68ad",
+      "cn_clip/clip/model_configs/RBT3-chinese.json": "7b53963a3abb5393578943cbb646d03fa86c28d75317b7c2e0ae39c050c98241",
+      "cn_clip/deploy/pytorch_to_coreml.py": "dab4348e8c2085f30ed05120f273c98dd12a6b7cd73512d1942e81fb2f277e3e",
+      "MIT-LICENSE.txt": "38606db043e83213415ca49945ffcd3da25ffec50356f9fc08bdf20aab12f88a"
+    }
+  },
+  "tokenizer": {
+    "type": "BERT WordPiece",
+    "contextLength": 52,
+    "vocabularySize": 21128,
+    "appVocabularyPath": "ios_app/IntentResourceDemo/Resources/chinese_clip_vocab.txt",
+    "vocabularySha256": "f7863b040bae29ac474065729355252248c92d41141c1e09fbf21dd3e593a238",
+    "specialTokenIds": {
+      "pad": 0,
+      "unknown": 100,
+      "cls": 101,
+      "sep": 102
+    }
+  },
+  "coreML": {
+    "precision": "fp16",
+    "minimumDeploymentTarget": "iOS15",
+    "outputDirectory": "external_models/converted_ios/chinese_clip_rn50_fp16",
+    "textModel": "chinese_clip_rn50_text.mlpackage",
+    "imageModel": "chinese_clip_rn50_image.mlpackage",
+    "textInput": {
+      "name": "text",
+      "shape": [1, 52],
+      "dataType": "int32"
+    },
+    "imageInput": {
+      "name": "image",
+      "shape": [1, 3, 224, 224],
+      "dataType": "float32",
+      "resize": "224x224 bicubic",
+      "channelOrder": "RGB",
+      "mean": [0.48145466, 0.4578275, 0.40821073],
+      "standardDeviation": [0.26862954, 0.26130258, 0.27577711]
+    },
+    "textOutput": {
+      "name": "text_features",
+      "dimensions": 1024
+    },
+    "imageOutput": {
+      "name": "image_features",
+      "dimensions": 1024
+    }
+  }
+}

@@ -10,9 +10,6 @@ struct InferenceView: View {
             if let normalized = inference.normalizedSlots {
                 MetricRow(label: "检索槽位", value: jsonString(normalized))
                 MetricRow(label: "资源关键词", value: normalized.searchKeyword ?? "当前/泛指资源")
-                if let semanticQueryText = inference.semanticQueryText {
-                    MetricRow(label: "英文语义查询", value: semanticQueryText)
-                }
                 MetricRow(label: "目标对象", value: normalized.targetKeyword)
             } else {
                 MetricRow(label: "检索槽位", value: "{}")

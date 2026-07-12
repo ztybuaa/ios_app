@@ -8,68 +8,56 @@ final class SemanticImageSearchService {
     static let shared = SemanticImageSearchService()
 
     private let ciContext = CIContext()
-    private let tokenizer: CLIPTokenizer?
-    private let imageModel: mobileclip_s0_image?
-    private let textModel: mobileclip_s0_text?
+    private let rgbColorSpace = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
+    private let models: Result<ChineseCLIPModels, Error>
     private let cacheLock = NSLock()
     private let predictionLock = NSLock()
     private var imageEmbeddingCache: [String: [NamedEmbedding]] = [:]
     private var textEmbeddingCache: [String: [Float]] = [:]
 
     private init() {
-        let configuration = MLModelConfiguration()
-        configuration.computeUnits = .all
-        tokenizer = CLIPTokenizer()
-        imageModel = try? mobileclip_s0_image(configuration: configuration)
-        textModel = try? mobileclip_s0_text(configuration: configuration)
-    }
-
-    var isAvailable: Bool {
-        tokenizer != nil && imageModel != nil && textModel != nil
+        do {
+            models = .success(try ChineseCLIPModels(bundle: .main))
+        } catch {
+            models = .failure(error)
+        }
     }
 
     func search(
         assets: [PHAsset],
         kind: CandidateKind,
         slots: NormalizedSlots,
-        semanticQueryText: String?,
         limit: Int
     ) async throws -> [ResourceCandidate] {
-        guard isAvailable else {
-            throw DemoError.resourceUnavailable("MobileCLIP semantic model is not loaded.")
-        }
-
-        let query = SemanticQueryPlanner.query(for: slots, semanticQueryText: semanticQueryText)
-        guard let positiveEmbeddings = textEmbeddings(for: query.positivePrompts),
-              let negativeEmbeddings = textEmbeddings(for: query.negativePrompts),
-              !positiveEmbeddings.isEmpty,
-              !negativeEmbeddings.isEmpty else {
-            throw DemoError.resourceUnavailable("MobileCLIP text embeddings could not be generated.")
-        }
+        let models = try loadedModels()
+        let query = SemanticQueryPlanner.query(for: slots)
+        let positiveEmbeddings = try textEmbeddings(for: query.positivePrompts, models: models)
+        let negativeEmbeddings = try textEmbeddings(for: query.negativePrompts, models: models)
 
         var candidates: [ResourceCandidate] = []
         let scanAssets = Array(assets.prefix(semanticScanLimit(for: slots)))
-        let batchSize = semanticBatchSize(for: query)
+        let batchSize = 2
 
         for batchStart in stride(from: 0, to: scanAssets.count, by: batchSize) {
             if Task.isCancelled { break }
             let batchEnd = min(batchStart + batchSize, scanAssets.count)
             let batch = Array(scanAssets[batchStart..<batchEnd])
 
-            await withTaskGroup(of: ResourceCandidate?.self) { group in
+            try await withThrowingTaskGroup(of: ResourceCandidate?.self) { group in
                 for asset in batch {
                     group.addTask {
-                        await self.matchCandidate(
+                        try await self.matchCandidate(
                             asset: asset,
                             kind: kind,
                             query: query,
                             positiveEmbeddings: positiveEmbeddings,
-                            negativeEmbeddings: negativeEmbeddings
+                            negativeEmbeddings: negativeEmbeddings,
+                            models: models
                         )
                     }
                 }
 
-                for await candidate in group {
+                for try await candidate in group {
                     if let candidate {
                         candidates.append(candidate)
                     }
@@ -83,6 +71,15 @@ final class SemanticImageSearchService {
             .map { $0 }
     }
 
+    private func loadedModels() throws -> ChineseCLIPModels {
+        switch models {
+        case .success(let models):
+            return models
+        case .failure(let error):
+            throw DemoError.resourceUnavailable(error.localizedDescription)
+        }
+    }
+
     private func semanticScanLimit(for slots: NormalizedSlots) -> Int {
         if slots.qualifiers.selectionHint.contains("all") {
             return 3_000
@@ -93,109 +90,125 @@ final class SemanticImageSearchService {
         return 2_000
     }
 
-    private func semanticBatchSize(for query: SemanticQuery) -> Int {
-        2
-    }
-
     private func matchCandidate(
         asset: PHAsset,
         kind: CandidateKind,
         query: SemanticQuery,
         positiveEmbeddings: [[Float]],
-        negativeEmbeddings: [[Float]]
-    ) async -> ResourceCandidate? {
-        guard let imageEmbeddings = await imageEmbeddings(for: asset, query: query),
+        negativeEmbeddings: [[Float]],
+        models: ChineseCLIPModels
+    ) async throws -> ResourceCandidate? {
+        guard let imageEmbeddings = try await imageEmbeddings(for: asset, query: query, models: models),
               !imageEmbeddings.isEmpty else {
             return nil
         }
 
-        var bestPositive = SemanticMatchScore(value: -1, cropName: "none")
-        var bestNegative: Float = -1
-
+        var bestMatch = SemanticMatchScore(
+            positive: -1,
+            negative: -1,
+            margin: -.infinity,
+            cropName: "none"
+        )
         for imageEmbedding in imageEmbeddings {
-            let positive = positiveEmbeddings.map { cosineSimilarity(imageEmbedding.values, $0) }.max() ?? -1
-            if positive > bestPositive.value {
-                bestPositive = SemanticMatchScore(value: positive, cropName: imageEmbedding.name)
+            let positive = positiveEmbeddings
+                .map { cosineSimilarity(imageEmbedding.values, $0) }
+                .max() ?? -1
+            let negative = negativeEmbeddings
+                .map { cosineSimilarity(imageEmbedding.values, $0) }
+                .max() ?? -1
+            let margin = positive - negative
+            if margin > bestMatch.margin || (margin == bestMatch.margin && positive > bestMatch.positive) {
+                bestMatch = SemanticMatchScore(
+                    positive: positive,
+                    negative: negative,
+                    margin: margin,
+                    cropName: imageEmbedding.name
+                )
             }
-            let negative = negativeEmbeddings.map { cosineSimilarity(imageEmbedding.values, $0) }.max() ?? -1
-            bestNegative = max(bestNegative, negative)
         }
 
-        let margin = bestPositive.value - bestNegative
-        guard bestPositive.value >= query.minimumSimilarity,
-              margin >= query.minimumMargin else {
+        guard bestMatch.positive >= query.minimumSimilarity,
+              bestMatch.margin >= query.minimumMargin else {
             return nil
         }
 
-        let score = Double(margin * 1000 + bestPositive.value * 10)
+        let score = Double(bestMatch.margin * 1_000 + bestMatch.positive * 10)
         return makeCandidate(
             asset: asset,
             kind: kind,
             score: score,
-            positive: bestPositive.value,
-            negative: bestNegative,
-            margin: margin,
-            cropName: bestPositive.cropName,
+            match: bestMatch,
             prompts: query.positivePrompts
         )
     }
 
-    private func textEmbeddings(for prompts: [String]) -> [[Float]]? {
+    private func textEmbeddings(
+        for prompts: [String],
+        models: ChineseCLIPModels
+    ) throws -> [[Float]] {
+        guard !prompts.isEmpty else {
+            throw DemoError.resourceUnavailable("Chinese-CLIP 没有收到有效中文提示词。")
+        }
+
         var embeddings: [[Float]] = []
+        embeddings.reserveCapacity(prompts.count)
         for prompt in prompts {
             if let cached = cachedTextEmbedding(prompt) {
                 embeddings.append(cached)
                 continue
             }
-            guard let embedding = computeTextEmbedding(prompt) else {
-                continue
-            }
+            let embedding = try computeTextEmbedding(prompt, models: models)
             setCachedTextEmbedding(embedding, for: prompt)
             embeddings.append(embedding)
         }
         return embeddings
     }
 
-    private func computeTextEmbedding(_ prompt: String) -> [Float]? {
-        guard let tokenizer, let textModel else {
-            return nil
+    private func computeTextEmbedding(
+        _ prompt: String,
+        models: ChineseCLIPModels
+    ) throws -> [Float] {
+        let tokenIDs = models.tokenizer.encode(prompt)
+        let input = try MLMultiArray(
+            shape: [1, 52],
+            dataType: .int32
+        )
+        for (index, tokenID) in tokenIDs.enumerated() {
+            input[index] = NSNumber(value: tokenID)
         }
-        do {
-            let inputIds = tokenizer.encode_full(text: prompt)
-            let inputArray = try MLMultiArray(shape: [1, 77], dataType: .int32)
-            for index in 0..<min(inputIds.count, 77) {
-                inputArray[index] = NSNumber(value: inputIds[index])
-            }
-            predictionLock.lock()
-            defer { predictionLock.unlock() }
-            let output = try textModel.prediction(text: inputArray).final_emb_1
-            return normalized(Array(output.floatValues))
-        } catch {
-            return nil
+
+        let provider = try MLDictionaryFeatureProvider(dictionary: ["text": input])
+        let output = try predict(models.text, provider: provider)
+        guard let features = output.featureValue(for: "text_features")?.multiArrayValue else {
+            throw ChineseCLIPError.missingPredictionOutput("text_features")
         }
+        return try normalizedEmbedding(features.floatValues, source: "text_features")
     }
 
-    private func imageEmbeddings(for asset: PHAsset, query: SemanticQuery) async -> [NamedEmbedding]? {
+    private func imageEmbeddings(
+        for asset: PHAsset,
+        query: SemanticQuery,
+        models: ChineseCLIPModels
+    ) async throws -> [NamedEmbedding]? {
         let cacheKey = "\(asset.localIdentifier)|\(query.embeddingProfile)"
         if let cached = cachedImageEmbeddings(cacheKey) {
             return cached
         }
         guard let image = await requestImage(asset: asset, needsRegionScan: query.needsRegionScan),
-              let pixelBuffers = pixelBuffers(from: image, needsRegionScan: query.needsRegionScan),
-              let imageModel else {
+              let imageTensors = try imageTensors(from: image, needsRegionScan: query.needsRegionScan) else {
             return nil
         }
 
         var embeddings: [NamedEmbedding] = []
-        for item in pixelBuffers {
-            do {
-                predictionLock.lock()
-                let output = try imageModel.prediction(image: item.buffer).final_emb_1
-                predictionLock.unlock()
-                embeddings.append(NamedEmbedding(name: item.name, values: normalized(Array(output.floatValues))))
-            } catch {
-                predictionLock.unlock()
+        embeddings.reserveCapacity(imageTensors.count)
+        for item in imageTensors {
+            let provider = try MLDictionaryFeatureProvider(dictionary: ["image": item.tensor])
+            let output = try predict(models.image, provider: provider)
+            guard let features = output.featureValue(for: "image_features")?.multiArrayValue else {
+                throw ChineseCLIPError.missingPredictionOutput("image_features")
             }
+            let values = try normalizedEmbedding(features.floatValues, source: "image_features")
+            embeddings.append(NamedEmbedding(name: item.name, values: values))
         }
 
         guard !embeddings.isEmpty else {
@@ -203,6 +216,15 @@ final class SemanticImageSearchService {
         }
         setCachedImageEmbeddings(embeddings, for: cacheKey)
         return embeddings
+    }
+
+    private func predict(
+        _ model: MLModel,
+        provider: MLFeatureProvider
+    ) throws -> MLFeatureProvider {
+        predictionLock.lock()
+        defer { predictionLock.unlock() }
+        return try model.prediction(from: provider)
     }
 
     private func requestImage(asset: PHAsset, needsRegionScan: Bool) async -> UIImage? {
@@ -219,8 +241,8 @@ final class SemanticImageSearchService {
             }
 
             let options = PHImageRequestOptions()
-            options.deliveryMode = needsRegionScan ? .opportunistic : .fastFormat
-            options.resizeMode = .fast
+            options.deliveryMode = .highQualityFormat
+            options.resizeMode = .exact
             options.isNetworkAccessAllowed = false
 
             let side = needsRegionScan ? 900 : 512
@@ -243,78 +265,94 @@ final class SemanticImageSearchService {
         }
     }
 
-    private func pixelBuffers(from image: UIImage, needsRegionScan: Bool) -> [NamedPixelBuffer]? {
-        guard let ciImage = CIImage(image: image) else {
+    private func imageTensors(
+        from image: UIImage,
+        needsRegionScan: Bool
+    ) throws -> [NamedImageTensor]? {
+        guard let sourceImage = CIImage(image: image)?.translatedToOrigin() else {
             return nil
         }
 
+        let targetSize = CGSize(width: ChineseCLIPModelContract.imageSize, height: ChineseCLIPModelContract.imageSize)
         var views: [(String, CIImage)] = []
-        if let full = ciImage.fitIntoSquare(size: CGSize(width: 256, height: 256)) {
+        if let full = sourceImage.resizeBicubic(size: targetSize) {
             views.append(("full", full))
         }
-        if let center = ciImage.cropToSquare(at: .center)?.resize(size: CGSize(width: 256, height: 256)) {
+        if let center = sourceImage.cropToSquare(at: .center)?.resizeBicubic(size: targetSize) {
             views.append(("center", center))
         }
         if needsRegionScan {
             for anchor in RegionAnchor.cornerAnchors {
-                if let crop = ciImage.cropToSquare(at: anchor)?.resize(size: CGSize(width: 256, height: 256)) {
+                if let crop = sourceImage.cropToSquare(at: anchor)?.resizeBicubic(size: targetSize) {
                     views.append((anchor.rawValue, crop))
                 }
             }
         }
 
-        var result: [NamedPixelBuffer] = []
+        var result: [NamedImageTensor] = []
         var seen = Set<String>()
         for view in views where seen.insert(view.0).inserted {
-            guard let buffer = pixelBuffer(from: view.1) else {
-                continue
-            }
-            result.append(NamedPixelBuffer(name: view.0, buffer: buffer))
+            result.append(NamedImageTensor(name: view.0, tensor: try imageTensor(from: view.1)))
         }
         return result
     }
 
-    private func pixelBuffer(from image: CIImage) -> CVPixelBuffer? {
-        let translated = image.transformed(
-            by: CGAffineTransform(translationX: -image.extent.origin.x, y: -image.extent.origin.y)
-        )
-
-        var buffer: CVPixelBuffer?
-        CVPixelBufferCreate(
-            nil,
-            256,
-            256,
-            kCVPixelFormatType_32ARGB,
-            nil,
-            &buffer
-        )
-        guard let buffer else {
-            return nil
+    private func imageTensor(from image: CIImage) throws -> MLMultiArray {
+        let size = ChineseCLIPModelContract.imageSize
+        let rowBytes = size * 4
+        var pixels = Array(repeating: UInt8(0), count: rowBytes * size)
+        pixels.withUnsafeMutableBytes { bytes in
+            guard let baseAddress = bytes.baseAddress else { return }
+            ciContext.render(
+                image,
+                toBitmap: baseAddress,
+                rowBytes: rowBytes,
+                bounds: CGRect(x: 0, y: 0, width: size, height: size),
+                format: .RGBA8,
+                colorSpace: rgbColorSpace
+            )
         }
-        ciContext.render(translated, to: buffer)
-        return buffer
+
+        let tensor = try MLMultiArray(
+            shape: [1, 3, 224, 224],
+            dataType: .float32
+        )
+        let tensorValues = tensor.dataPointer.bindMemory(to: Float.self, capacity: tensor.count)
+        let planeSize = size * size
+        pixels.withUnsafeBytes { bytes in
+            let rgba = bytes.bindMemory(to: UInt8.self)
+            for pixelIndex in 0..<planeSize {
+                let byteIndex = pixelIndex * 4
+                let red = Float(rgba[byteIndex]) / 255
+                let green = Float(rgba[byteIndex + 1]) / 255
+                let blue = Float(rgba[byteIndex + 2]) / 255
+                tensorValues[pixelIndex] = (red - 0.48145466) / 0.26862954
+                tensorValues[planeSize + pixelIndex] = (green - 0.4578275) / 0.26130258
+                tensorValues[planeSize * 2 + pixelIndex] = (blue - 0.40821073) / 0.27577711
+            }
+        }
+        return tensor
     }
 
     private func makeCandidate(
         asset: PHAsset,
         kind: CandidateKind,
         score: Double,
-        positive: Float,
-        negative: Float,
-        margin: Float,
-        cropName: String,
+        match: SemanticMatchScore,
         prompts: [String]
     ) -> ResourceCandidate {
-        let date = asset.creationDate.map { DateFormatter.localizedString(from: $0, dateStyle: .short, timeStyle: .short) } ?? "未知时间"
+        let date = asset.creationDate.map {
+            DateFormatter.localizedString(from: $0, dateStyle: .short, timeStyle: .short)
+        } ?? "未知时间"
         let dimensions = "\(asset.pixelWidth)x\(asset.pixelHeight)"
         let title = kind == .video ? "视频 \(date)" : "照片 \(date)"
         let promptPreview = prompts.prefix(4).joined(separator: " / ")
         let detail = String(
-            format: "semantic margin %.3f, positive %.3f, negative %.3f, view %@, prompts: %@",
-            Double(margin),
-            Double(positive),
-            Double(negative),
-            cropName,
+            format: "语义差值 %.3f，正向 %.3f，负向 %.3f，视图 %@，提示词：%@",
+            Double(match.margin),
+            Double(match.positive),
+            Double(match.negative),
+            match.cropName,
             promptPreview
         )
 
@@ -325,7 +363,7 @@ final class SemanticImageSearchService {
             subtitle: dimensions,
             detail: detail,
             score: score,
-            debugInfo: "matched calibrated MobileCLIP semantic retrieval"
+            debugInfo: "Chinese-CLIP RN50 FP16 中文语义检索"
         )
     }
 
@@ -336,10 +374,14 @@ final class SemanticImageSearchService {
         return zip(a, b).reduce(Float(0)) { $0 + $1.0 * $1.1 }
     }
 
-    private func normalized(_ values: [Float]) -> [Float] {
+    private func normalizedEmbedding(_ values: [Float], source: String) throws -> [Float] {
+        guard values.count == ChineseCLIPModelContract.embeddingDimensions,
+              values.allSatisfy(\.isFinite) else {
+            throw ChineseCLIPError.invalidEmbedding(source, values.count)
+        }
         let norm = sqrt(values.reduce(Float(0)) { $0 + $1 * $1 })
-        guard norm > 0 else {
-            return values
+        guard norm.isFinite, norm > 0 else {
+            throw ChineseCLIPError.invalidEmbedding(source, values.count)
         }
         return values.map { $0 / norm }
     }
@@ -367,120 +409,189 @@ final class SemanticImageSearchService {
         textEmbeddingCache[key] = value
         cacheLock.unlock()
     }
-
 }
 
-private enum SemanticQueryPlanner {
-    static func query(for slots: NormalizedSlots, semanticQueryText: String?) -> SemanticQuery {
-        let translated = semanticQueryText?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let fallbackEnglish = englishTerms(
-            from: [
-                slots.searchKeyword ?? "",
-                slots.resourcePhrase
-            ]
-            .joined(separator: " ")
-            .lowercased()
-        )
-        let queryText = translated.isEmpty ? fallbackEnglish.joined(separator: " ") : translated
-        let normalizedQuery = queryText
-            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+private struct ChineseCLIPModels {
+    let tokenizer: ChineseCLIPTokenizer
+    let image: MLModel
+    let text: MLModel
 
-        let subject = normalizedQuery.isEmpty ? "the requested visual content" : normalizedQuery
-        let lowerSubject = subject.lowercased()
-        let wantsScreen = containsAny(
-            lowerSubject,
-            terms: ["screenshot", "screen capture", "screen", "interface", "gameplay", "game"]
-        )
-        let wantsGame = containsAny(lowerSubject, terms: ["game", "gameplay"])
-        let wantsScenery = containsAny(
-            lowerSubject,
-            terms: ["landscape", "scenery", "nature", "outdoor", "mountain", "lake", "beach"]
-        )
-        let wantsWildlife = containsAny(lowerSubject, terms: ["wildlife", "wild animal", "zoo", "safari"])
+    init(bundle: Bundle) throws {
+        tokenizer = try ChineseCLIPTokenizer(bundle: bundle)
 
-        var positivePrompts = [
-            subject,
-            "an image matching \(subject)",
-            "a photo containing \(subject)",
-            "\(subject) visible anywhere in the image",
-            "a close-up or background view containing \(subject)"
-        ]
-        positivePrompts.append(
-            wantsScreen
-            ? "a screenshot or app interface matching \(subject)"
-            : "a real camera photo matching \(subject)"
+        let configuration = MLModelConfiguration()
+        configuration.computeUnits = .all
+        image = try Self.loadModel(
+            named: ChineseCLIPModelContract.imageModelName,
+            bundle: bundle,
+            configuration: configuration
         )
-        if wantsGame {
-            positivePrompts.append(contentsOf: [
-                "a video game screenshot",
-                "a gameplay screen",
-                "a game interface"
-            ])
-        }
-        if !wantsWildlife && !wantsScreen {
-            positivePrompts.append("a domestic or everyday subject matching \(subject)")
-        }
+        text = try Self.loadModel(
+            named: ChineseCLIPModelContract.textModelName,
+            bundle: bundle,
+            configuration: configuration
+        )
 
-        var negativePrompts = [
-            "an unrelated image",
-            "a visually similar but wrong image",
-            "a different object, animal, or scene",
-            "a random photo",
-            "a generic image that does not match the request",
-            "a blurry or ambiguous image",
-            "an image without \(subject)"
-        ]
-        if !wantsWildlife {
-            negativePrompts.append(contentsOf: [
-                "a wildlife animal photo",
-                "a zoo animal photo",
-                "a wild predator animal photo"
-            ])
-        }
-        if wantsScreen {
-            negativePrompts.append(contentsOf: [
-                "a real camera photo",
-                "a pet or animal photo",
-                "a landscape camera photo"
-            ])
-        } else {
-            negativePrompts.append("a screenshot or app interface that does not match the query")
-        }
-        if wantsGame {
-            negativePrompts.append(contentsOf: [
-                "a generic app screenshot",
-                "a web app interface screenshot",
-                "a phone settings screenshot"
-            ])
-        }
-
-        return SemanticQuery(
-            positivePrompts: orderedUnique(positivePrompts),
-            negativePrompts: orderedUnique(negativePrompts),
-            needsRegionScan: true,
-            minimumSimilarity: 0.19,
-            minimumMargin: wantsGame || wantsScenery ? 0.035 : 0.008
+        try Self.validate(
+            image,
+            input: "image",
+            inputShape: [1, 3, 224, 224],
+            inputType: .float32,
+            output: "image_features"
+        )
+        try Self.validate(
+            text,
+            input: "text",
+            inputShape: [1, 52],
+            inputType: .int32,
+            output: "text_features"
         )
     }
 
-    private static func englishTerms(from text: String) -> [String] {
-        let pattern = "[a-z0-9][a-z0-9 -]{1,80}"
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
-            return []
+    private static func loadModel(
+        named name: String,
+        bundle: Bundle,
+        configuration: MLModelConfiguration
+    ) throws -> MLModel {
+        guard let url = bundle.url(forResource: name, withExtension: "mlmodelc") else {
+            throw ChineseCLIPError.missingModel(name)
         }
-        let range = NSRange(location: 0, length: text.utf16.count)
-        return regex.matches(in: text, options: [], range: range).compactMap { match in
-            guard let swiftRange = Range(match.range, in: text) else { return nil }
-            return String(text[swiftRange]).trimmingCharacters(in: .whitespacesAndNewlines)
+        do {
+            return try MLModel(contentsOf: url, configuration: configuration)
+        } catch {
+            throw ChineseCLIPError.unreadableModel(name, error.localizedDescription)
         }
+    }
+
+    private static func validate(
+        _ model: MLModel,
+        input: String,
+        inputShape: [Int],
+        inputType: MLMultiArrayDataType,
+        output: String
+    ) throws {
+        guard let inputDescription = model.modelDescription.inputDescriptionsByName[input],
+              inputDescription.type == .multiArray,
+              let inputConstraint = inputDescription.multiArrayConstraint,
+              inputConstraint.shape.map({ $0.intValue }) == inputShape,
+              inputConstraint.dataType == inputType else {
+            throw ChineseCLIPError.invalidModelContract("input \(input) must be \(inputType) \(inputShape)")
+        }
+        guard let outputDescription = model.modelDescription.outputDescriptionsByName[output],
+              outputDescription.type == .multiArray,
+              let outputConstraint = outputDescription.multiArrayConstraint,
+              outputConstraint.shape.map({ $0.intValue }).reduce(1, *) == ChineseCLIPModelContract.embeddingDimensions else {
+            throw ChineseCLIPError.invalidModelContract(
+                "output \(output) must contain \(ChineseCLIPModelContract.embeddingDimensions) values"
+            )
+        }
+    }
+}
+
+private enum ChineseCLIPModelContract {
+    static let textModelName = "chinese_clip_rn50_text"
+    static let imageModelName = "chinese_clip_rn50_image"
+    static let imageSize = 224
+    static let embeddingDimensions = 1_024
+    static let profile = "chinese-clip-rn50-fp16-v1"
+}
+
+private enum ChineseCLIPError: LocalizedError {
+    case missingModel(String)
+    case unreadableModel(String, String)
+    case invalidModelContract(String)
+    case missingPredictionOutput(String)
+    case invalidEmbedding(String, Int)
+
+    var errorDescription: String? {
+        switch self {
+        case .missingModel(let name):
+            return "Chinese-CLIP 模型 \(name).mlmodelc 不在 App Bundle 中。"
+        case .unreadableModel(let name, let reason):
+            return "Chinese-CLIP 模型 \(name) 加载失败：\(reason)"
+        case .invalidModelContract(let reason):
+            return "Chinese-CLIP RN50 模型接口不匹配：\(reason)。"
+        case .missingPredictionOutput(let name):
+            return "Chinese-CLIP 推理缺少输出 \(name)。"
+        case .invalidEmbedding(let source, let count):
+            return "Chinese-CLIP 输出 \(source) 不是有效的 1024 维向量，实际长度为 \(count)。"
+        }
+    }
+}
+
+private enum ChineseCLIPRN50Config {
+    static let minimumSimilarity: Float = 0.47
+    static let screenshotMinimumMargin: Float = 0.011
+    static let defaultMinimumMargin: Float = 0.012
+}
+
+private enum SemanticQueryPlanner {
+    static func query(for slots: NormalizedSlots) -> SemanticQuery {
+        let keyword = slots.searchKeyword?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let phrase = slots.resourcePhrase.trimmingCharacters(in: .whitespacesAndNewlines)
+        let subject = normalizedWhitespace(phrase.isEmpty ? keyword : phrase)
+        let searchText = "\(subject) \(phrase)".lowercased()
+
+        let wantsScreen = containsAny(searchText, terms: ["截图", "截屏", "屏幕", "界面", "screen", "screenshot"])
+        let wantsGame = containsAny(searchText, terms: ["游戏", "手游", "游戏画面", "game", "gameplay"])
+        let wantsScenery = containsAny(
+            searchText,
+            terms: ["风景", "景色", "自然", "户外", "山", "湖", "海滩", "天空", "landscape"]
+        )
+        let wantsCat = searchText.contains("猫")
+        let wantsDog = searchText.contains("狗") || searchText.contains("犬")
+        let wantsPerson = containsAny(
+            searchText,
+            terms: ["美女", "人物", "人像", "女人", "女生", "男人", "男生", "自拍", "合影", "portrait"]
+        )
+
+        let negativePrompts: [String]
+        if wantsGame {
+            negativePrompts = [
+                "普通应用界面",
+                "网页截图",
+                "手机设置界面",
+                "小猫",
+                "小狗",
+                "风景",
+                "人像"
+            ]
+        } else if wantsScreen {
+            negativePrompts = ["小猫", "小狗", "风景", "人像", "宠物"]
+        } else if wantsCat {
+            negativePrompts = ["狗的照片", "野生动物照片", "老虎照片", "风景照片", "人物照片", "手机截图"]
+        } else if wantsDog {
+            negativePrompts = ["猫的照片", "野生动物照片", "老虎照片", "风景照片", "人物照片", "手机截图"]
+        } else if wantsScenery {
+            negativePrompts = ["人物照片", "宠物照片", "手机截图", "文档图片"]
+        } else if wantsPerson {
+            negativePrompts = ["宠物照片", "风景照片", "手机截图", "没有人物的物品照片"]
+        } else {
+            negativePrompts = ["与查询内容无关的图片", "随机图片", "模糊图片"]
+        }
+
+        return SemanticQuery(
+            positivePrompts: orderedUnique([subject]),
+            negativePrompts: orderedUnique(negativePrompts),
+            needsRegionScan: true,
+            minimumSimilarity: ChineseCLIPRN50Config.minimumSimilarity,
+            minimumMargin: wantsScreen && !wantsGame
+                ? ChineseCLIPRN50Config.screenshotMinimumMargin
+                : ChineseCLIPRN50Config.defaultMinimumMargin
+        )
+    }
+
+    private static func normalizedWhitespace(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private static func orderedUnique(_ values: [String]) -> [String] {
         var seen = Set<String>()
         var result: [String] = []
         for value in values {
-            let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            let normalized = normalizedWhitespace(value)
             guard !normalized.isEmpty else { continue }
             if seen.insert(normalized.lowercased()).inserted {
                 result.append(normalized)
@@ -502,7 +613,7 @@ private struct SemanticQuery {
     let minimumMargin: Float
 
     var embeddingProfile: String {
-        needsRegionScan ? "regions-v2" : "full-v2"
+        "\(ChineseCLIPModelContract.profile)-\(needsRegionScan ? "regions" : "full")"
     }
 }
 
@@ -511,13 +622,15 @@ private struct NamedEmbedding {
     let values: [Float]
 }
 
-private struct NamedPixelBuffer {
+private struct NamedImageTensor {
     let name: String
-    let buffer: CVPixelBuffer
+    let tensor: MLMultiArray
 }
 
 private struct SemanticMatchScore {
-    let value: Float
+    let positive: Float
+    let negative: Float
+    let margin: Float
     let cropName: String
 }
 
@@ -532,7 +645,16 @@ private enum RegionAnchor: String {
 }
 
 private extension CIImage {
+    func translatedToOrigin() -> CIImage {
+        transformed(
+            by: CGAffineTransform(translationX: -extent.origin.x, y: -extent.origin.y)
+        )
+    }
+
     func cropToSquare(at anchor: RegionAnchor) -> CIImage? {
+        guard extent.width > 0, extent.height > 0 else {
+            return nil
+        }
         let size = min(extent.width, extent.height)
         let x: CGFloat
         let y: CGFloat
@@ -556,38 +678,31 @@ private extension CIImage {
         }
 
         let rect = CGRect(x: x, y: y, width: size, height: size)
-        return cropped(to: rect).transformed(by: CGAffineTransform(translationX: -x, y: -y))
+        return cropped(to: rect)
+            .transformed(by: CGAffineTransform(translationX: -x, y: -y))
     }
 
-    func fitIntoSquare(size targetSize: CGSize) -> CIImage? {
-        guard extent.width > 0, extent.height > 0 else {
+    func resizeBicubic(size targetSize: CGSize) -> CIImage? {
+        guard extent.width > 0, extent.height > 0,
+              targetSize.width > 0, targetSize.height > 0,
+              let filter = CIFilter(name: "CIBicubicScaleTransform") else {
             return nil
         }
-
-        let scale = min(targetSize.width / extent.width, targetSize.height / extent.height)
-        let scaledWidth = extent.width * scale
-        let scaledHeight = extent.height * scale
-        let x = (targetSize.width - scaledWidth) / 2
-        let y = (targetSize.height - scaledHeight) / 2
-        let scaled = transformed(by: CGAffineTransform(scaleX: scale, y: scale))
-            .transformed(by: CGAffineTransform(translationX: x, y: y))
-
-        let background = CIImage(color: CIColor(red: 0.5, green: 0.5, blue: 0.5))
-            .cropped(to: CGRect(origin: .zero, size: targetSize))
-        return scaled.composited(over: background)
-            .cropped(to: CGRect(origin: .zero, size: targetSize))
-    }
-
-    func resize(size: CGSize) -> CIImage? {
-        let scaleX = size.width / extent.width
-        let scaleY = size.height / extent.height
-        return transformed(by: CGAffineTransform(scaleX: scaleX, y: scaleY))
+        let source = translatedToOrigin()
+        let scale = targetSize.height / source.extent.height
+        let aspectRatio = (targetSize.width / source.extent.width) / scale
+        filter.setValue(source, forKey: kCIInputImageKey)
+        filter.setValue(scale, forKey: kCIInputScaleKey)
+        filter.setValue(aspectRatio, forKey: kCIInputAspectRatioKey)
+        guard let output = filter.outputImage else {
+            return nil
+        }
+        return output.cropped(to: CGRect(origin: .zero, size: targetSize))
     }
 }
 
 private extension MLMultiArray {
     var floatValues: [Float] {
-        let count = self.count
         var values: [Float] = []
         values.reserveCapacity(count)
         for index in 0..<count {

@@ -1,3 +1,4 @@
+import argparse
 import json
 import plistlib
 import re
@@ -24,6 +25,8 @@ GITHUB_WORKFLOW = ROOT / ".github" / "workflows" / "build-ios-unsigned-ipa.yml"
 CI_BUILD_SCRIPT = ROOT / "scripts" / "ci" / "build_unsigned_ipa.sh"
 DEMO_VIEW_MODEL = APP_ROOT / "App" / "DemoViewModel.swift"
 CONTENT_VIEW = APP_ROOT / "Views" / "ContentView.swift"
+SEMANTIC_SEARCH = APP_ROOT / "ResourceModules" / "SemanticImageSearchService.swift"
+CHINESE_CLIP_TOKENIZER = APP_ROOT / "NLP" / "Tokenizer" / "ChineseCLIPTokenizer.swift"
 
 SWIFT_FILES = [
     "App/DemoError.swift",
@@ -35,9 +38,7 @@ SWIFT_FILES = [
     "NLP/LinearClassifier.swift",
     "NLP/SlotNormalizer.swift",
     "NLP/TinyIntentSlotModel.swift",
-    "NLP/Tokenizer/CLIPTokenizer.swift",
-    "NLP/Tokenizer/GPT2ByteEncoder.swift",
-    "NLP/Tokenizer/Utils.swift",
+    "NLP/Tokenizer/ChineseCLIPTokenizer.swift",
     "ResourceModules/ContactResourceModule.swift",
     "ResourceModules/FileFolderResourceModule.swift",
     "ResourceModules/MediaResourceModule.swift",
@@ -53,17 +54,16 @@ SWIFT_FILES = [
 RESOURCE_FILES = [
     "Resources/tiny_intent_slot_model.json",
     "Resources/sample_resource_index.json",
-    "Resources/clip-vocab.json",
-    "Resources/clip-merges.txt",
+    "Resources/chinese_clip_vocab.txt",
 ]
 
-MOBILECLIP_FILES = [
-    "Resources/MobileCLIP/mobileclip_s0_image.mlpackage/Manifest.json",
-    "Resources/MobileCLIP/mobileclip_s0_image.mlpackage/Data/com.apple.CoreML/model.mlmodel",
-    "Resources/MobileCLIP/mobileclip_s0_image.mlpackage/Data/com.apple.CoreML/weights/weight.bin",
-    "Resources/MobileCLIP/mobileclip_s0_text.mlpackage/Manifest.json",
-    "Resources/MobileCLIP/mobileclip_s0_text.mlpackage/Data/com.apple.CoreML/model.mlmodel",
-    "Resources/MobileCLIP/mobileclip_s0_text.mlpackage/Data/com.apple.CoreML/weights/weight.bin",
+CHINESE_CLIP_FILES = [
+    "Resources/ChineseCLIP/chinese_clip_rn50_image.mlpackage/Manifest.json",
+    "Resources/ChineseCLIP/chinese_clip_rn50_image.mlpackage/Data/com.apple.CoreML/model.mlmodel",
+    "Resources/ChineseCLIP/chinese_clip_rn50_image.mlpackage/Data/com.apple.CoreML/weights/weight.bin",
+    "Resources/ChineseCLIP/chinese_clip_rn50_text.mlpackage/Manifest.json",
+    "Resources/ChineseCLIP/chinese_clip_rn50_text.mlpackage/Data/com.apple.CoreML/model.mlmodel",
+    "Resources/ChineseCLIP/chinese_clip_rn50_text.mlpackage/Data/com.apple.CoreML/weights/weight.bin",
 ]
 
 
@@ -72,13 +72,25 @@ def require(condition, message):
         raise SystemExit(f"VALIDATION FAILED: {message}")
 
 
-def validate_files():
+def validate_files(require_generated_models):
     require(PROJECT_FILE.exists(), f"missing {PROJECT_FILE}")
     require(SCHEME_FILE.exists(), f"missing shared scheme {SCHEME_FILE}")
     require(GITHUB_WORKFLOW.exists(), f"missing GitHub Actions workflow {GITHUB_WORKFLOW}")
     require(CI_BUILD_SCRIPT.exists(), f"missing CI build script {CI_BUILD_SCRIPT}")
-    for relative in SWIFT_FILES + RESOURCE_FILES + MOBILECLIP_FILES + ["Support/Info.plist"]:
+    required_files = SWIFT_FILES + RESOURCE_FILES + ["Support/Info.plist"]
+    if require_generated_models:
+        required_files += CHINESE_CLIP_FILES
+    for relative in required_files:
         require((APP_ROOT / relative).exists(), f"missing app file {relative}")
+    for relative in (
+        "NLP/Tokenizer/CLIPTokenizer.swift",
+        "NLP/Tokenizer/GPT2ByteEncoder.swift",
+        "NLP/Tokenizer/Utils.swift",
+        "Resources/clip-vocab.json",
+        "Resources/clip-merges.txt",
+        "Resources/MobileCLIP",
+    ):
+        require(not (APP_ROOT / relative).exists(), f"obsolete app file still exists: {relative}")
 
 
 def validate_model():
@@ -118,9 +130,11 @@ def validate_project_references():
     for relative in SWIFT_FILES + RESOURCE_FILES:
         name = Path(relative).name
         require(name in project_text, f"project.pbxproj missing reference to {name}")
-    for package_name in ("mobileclip_s0_image.mlpackage", "mobileclip_s0_text.mlpackage"):
+    for package_name in ("chinese_clip_rn50_image.mlpackage", "chinese_clip_rn50_text.mlpackage"):
         require(package_name in project_text, f"project.pbxproj missing reference to {package_name}")
         require(f"{package_name} in Sources" in project_text, f"{package_name} should be in Sources for Core ML codegen")
+    for obsolete_name in ("MobileCLIP", "mobileclip_s0", "clip-vocab.json", "clip-merges.txt"):
+        require(obsolete_name not in project_text, f"project.pbxproj still references obsolete {obsolete_name}")
     require("PRODUCT_BUNDLE_IDENTIFIER = com.local.IntentResourceDemo;" in project_text, "bundle id not set")
     require("CODE_SIGN_STYLE = Automatic;" in project_text, "automatic signing not enabled")
     require("IPHONEOS_DEPLOYMENT_TARGET = 16.0;" in project_text, "deployment target not set")
@@ -132,31 +146,50 @@ def validate_project_references():
     require(len(set(marketing_versions)) == 1, "Debug and Release versions differ")
 
 
-def validate_translation_flow():
+def validate_chinese_clip_flow():
     content_view = CONTENT_VIEW.read_text(encoding="utf-8")
     view_model = DEMO_VIEW_MODEL.read_text(encoding="utf-8")
+    semantic_search = SEMANTIC_SEARCH.read_text(encoding="utf-8")
+    tokenizer = CHINESE_CLIP_TOKENIZER.read_text(encoding="utf-8")
 
-    require("LanguageAvailability().status(" in content_view, "translation availability is not checked")
-    require('static let availabilitySource = Locale.Language(identifier: "zh-Hans")' in content_view, "availability source language not set")
-    require('Locale.Language(identifier: "en-US")' in content_view, "translation target language not set")
-    require("TranslationSession.Configuration(\n                        source: nil," in content_view, "translation session should detect its source language")
-    require("source: SemanticTranslationLanguages.availabilitySource" not in content_view, "translation session source should not be hard-coded")
-    require("TranslationSession.Request(sourceText: request.sourceText)" in content_view, "batch translation request is not created")
-    require("session.translations(from: translationRequests)" in content_view, "batch translation request is not executed")
-    require("session.translate(request.sourceText)" not in content_view, "single-string translation path should not be used")
-    require("try await session.prepareTranslation()" not in content_view, "translation task should call translate directly")
-    require('stage: "停止：系统翻译返回空响应"' in content_view, "empty translation response is not diagnosed")
-    require("TranslationDiagnosticSection(" in content_view, "translation diagnostic controls are not shown")
-    require("configuration = .init()" in content_view, "Apple sample automatic language pairing is not tested")
-    require("session.translate(sourceText)" in content_view, "Apple sample single-string translation is not tested")
-    require(".translationPresentation(" in content_view, "system translation UI is not tested")
-    require('probeID: "nounPhrase"' in content_view, "noun-phrase translation diagnostic is missing")
-    require('probeID: "fullCommand"' in content_view, "full-command translation diagnostic is missing")
-    require('probeID: "knownBaseline"' in content_view, "known translation baseline is missing")
-    require("systemUI=dismissedWithoutReplacement" in content_view, "system UI dismissal is not distinguished from replacement")
-    require("attemptID" in content_view, "translation diagnostics do not guard against stale responses")
-    require("return slots.resourcePhrase" in view_model, "semantic translation does not preserve the resource phrase")
-    require("[slots.searchKeyword, slots.resourcePhrase]" not in view_model, "semantic translation source duplicates the query")
+    for obsolete_term in ("import Translation", "TranslationSession", "TranslationDiagnosticSection", "semanticQueryText", "pendingTranslation"):
+        require(obsolete_term not in content_view + view_model, f"obsolete translation flow still contains {obsolete_term}")
+    require('textModelName = "chinese_clip_rn50_text"' in semantic_search, "Chinese-CLIP text model name is missing")
+    require('imageModelName = "chinese_clip_rn50_image"' in semantic_search, "Chinese-CLIP image model name is missing")
+    require('inputShape: [1, 52]' in semantic_search, "text input must be [1, 52]")
+    require('inputShape: [1, 3, 224, 224]' in semantic_search, "image input must be [1, 3, 224, 224]")
+    require('output: "text_features"' in semantic_search, "text output contract is missing")
+    require('output: "image_features"' in semantic_search, "image output contract is missing")
+    require('static let embeddingDimensions = 1_024' in semantic_search, "embedding dimension must be 1024")
+    require("positivePrompts: orderedUnique([subject])" in semantic_search, "Chinese prompt planner must use the raw Chinese subject")
+    require("static let minimumSimilarity: Float = 0.47" in semantic_search, "Chinese-CLIP similarity threshold is not calibrated")
+    require("static let screenshotMinimumMargin: Float = 0.011" in semantic_search, "screenshot margin threshold is not calibrated")
+    require("static let defaultMinimumMargin: Float = 0.012" in semantic_search, "default margin threshold is not calibrated")
+    require("try?" not in semantic_search, "semantic model errors must not be silently discarded")
+    require("static let contextLength = 52" in tokenizer, "tokenizer context length must be 52")
+    require("static let vocabularySize = 21_128" in tokenizer, "tokenizer vocabulary size must be 21128")
+    require('vocabulary["[CLS]"] == 101' in tokenizer, "tokenizer must validate [CLS]")
+    require('vocabulary["[SEP]"] == 102' in tokenizer, "tokenizer must validate [SEP]")
+
+    vocab_path = APP_ROOT / "Resources" / "chinese_clip_vocab.txt"
+    vocab = vocab_path.read_text(encoding="utf-8").split("\n")
+    if vocab and vocab[-1] == "":
+        vocab.pop()
+    vocab = [line[:-1] if line.endswith("\r") else line for line in vocab]
+    require(len(vocab) == 21_128, "Chinese-CLIP vocabulary must contain 21128 tokens")
+    for token, expected_id in {
+        "[PAD]": 0,
+        "[UNK]": 100,
+        "[CLS]": 101,
+        "[SEP]": 102,
+        "小": 2207,
+        "猫": 4344,
+        "图": 1745,
+        "片": 4275,
+    }.items():
+        require(vocab[expected_id] == token, f"Chinese-CLIP vocabulary token {token} has the wrong ID")
+    require(vocab[343] == chr(0x2028), "Chinese-CLIP vocabulary lost the U+2028 token at ID 343")
+    require(vocab[13_502] == "##" + chr(0x2028), "Chinese-CLIP vocabulary lost the ##U+2028 token at ID 13502")
 
 
 def validate_github_actions():
@@ -175,12 +208,20 @@ def validate_github_actions():
 
 
 def main():
-    validate_files()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--require-generated-models",
+        action="store_true",
+        help="Require CI-generated Chinese-CLIP Core ML packages to be staged.",
+    )
+    args = parser.parse_args()
+
+    validate_files(args.require_generated_models)
     validate_model()
     validate_resource_index()
     validate_info_plist()
     validate_project_references()
-    validate_translation_flow()
+    validate_chinese_clip_flow()
     validate_github_actions()
     print("iOS project validation passed")
     print(f"Swift files: {len(SWIFT_FILES)}")

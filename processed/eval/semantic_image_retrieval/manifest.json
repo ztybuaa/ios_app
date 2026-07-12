@@ -1,7 +1,12 @@
 {
   "version": 1,
-  "description": "Small semantic image retrieval regression set for pre-device checks. Chinese queries are paired with canonical English prompts because the iOS app should translate Chinese text before MobileCLIP retrieval.",
+  "description": "Small semantic image retrieval regression set for pre-device checks. Chinese queries are evaluated directly by Chinese-CLIP RN50 without runtime translation.",
   "imageRoot": "images",
+  "calibration": {
+    "minimumSimilarity": 0.47,
+    "standardMinimumMargin": 0.012,
+    "screenshotMinimumMargin": 0.011
+  },
   "images": [
     {
       "id": "cats",
@@ -78,54 +83,48 @@
     {
       "id": "cat",
       "chinese": "小猫图片",
-      "english": "Kitten, kitten picture",
-      "positivePrompts": ["a photo containing a cat", "a kitten visible in the image", "domestic cat"],
-      "negativePrompts": ["a dog photo", "a wildlife animal photo", "a wild predator animal", "a landscape photo", "a screenshot", "a portrait photo of a person"],
+      "hardNegatives": ["狗的照片", "野生动物照片", "老虎照片", "风景照片", "人物照片", "手机截图"],
+      "minimumMargin": 0.012,
       "expected": ["cats"],
       "topK": 2
     },
     {
       "id": "dog",
       "chinese": "小狗图片",
-      "english": "Puppy, puppy picture",
-      "positivePrompts": ["a photo containing a dog", "a puppy visible in the image", "domestic dog"],
-      "negativePrompts": ["a cat photo", "a wildlife animal photo", "a wild predator animal", "a landscape photo", "a screenshot", "a portrait photo of a person"],
+      "hardNegatives": ["猫的照片", "野生动物照片", "老虎照片", "风景照片", "人物照片", "手机截图"],
+      "minimumMargin": 0.012,
       "expected": ["corgi"],
       "topK": 2
     },
     {
       "id": "landscape",
       "chinese": "风景图片",
-      "english": "Landscape picture",
-      "positivePrompts": ["a landscape photo", "a scenic outdoor photo", "mountains, lake, beach or natural scenery"],
-      "negativePrompts": ["a portrait photo", "a pet photo", "a screenshot", "a document image"],
+      "hardNegatives": ["人物照片", "宠物照片", "手机截图", "文档图片"],
+      "minimumMargin": 0.012,
       "expected": ["moraine_lake", "beach"],
       "topK": 3
     },
     {
       "id": "woman",
       "chinese": "美女图片",
-      "english": "Beautiful woman picture",
-      "positivePrompts": ["a portrait photo of a woman", "a woman visible in the image", "a female person photo"],
-      "negativePrompts": ["a pet photo", "a landscape photo", "a screenshot", "an object photo without people"],
+      "hardNegatives": ["宠物照片", "风景照片", "手机截图", "没有人物的物品照片"],
+      "minimumMargin": 0.012,
       "expected": ["portrait_woman", "woman_afro"],
       "topK": 3
     },
     {
       "id": "screenshot",
       "chinese": "截图",
-      "english": "Screenshot",
-      "positivePrompts": ["a mobile app screenshot", "a phone screen capture", "an app interface screenshot"],
-      "negativePrompts": ["a camera photo", "a landscape photo", "a portrait photo", "a pet photo"],
+      "hardNegatives": ["小猫", "小狗", "风景", "人像", "宠物"],
+      "minimumMargin": 0.011,
       "expected": ["semantic_search_ui", "game_screenshot"],
       "topK": 3
     },
     {
       "id": "game_screenshot",
       "chinese": "游戏截图",
-      "english": "Game screenshot",
-      "positivePrompts": ["a video game screenshot", "a gameplay screen", "a mobile game interface"],
-      "negativePrompts": ["a camera photo", "a landscape photo", "a pet photo", "a wildlife animal photo", "a portrait photo", "a document image"],
+      "hardNegatives": ["普通应用界面", "网页截图", "手机设置界面", "小猫", "小狗", "风景", "人像"],
+      "minimumMargin": 0.012,
       "expected": ["game_screenshot"],
       "topK": 3
     }

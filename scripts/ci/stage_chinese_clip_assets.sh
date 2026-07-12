@@ -12,30 +12,10 @@ MODEL_NAMES=(
   "chinese_clip_rn50_text.mlpackage"
 )
 
-if [ ! -f "$MODEL_MANIFEST" ] || [ ! -f "$CONVERSION_MANIFEST" ]; then
-  echo "Model or conversion manifest is missing." >&2
-  exit 1
-fi
-
-EXPECTED_CHECKPOINT_SHA="$(/usr/bin/plutil -extract checkpoint.sha256 raw -o - "$MODEL_MANIFEST")"
-EXPECTED_SOURCE_REVISION="$(/usr/bin/plutil -extract source.revision raw -o - "$MODEL_MANIFEST")"
-ACTUAL_CHECKPOINT_SHA="$(/usr/bin/plutil -extract checkpoint.sha256 raw -o - "$CONVERSION_MANIFEST")"
-ACTUAL_SOURCE_REVISION="$(/usr/bin/plutil -extract sourceRevision raw -o - "$CONVERSION_MANIFEST")"
-PARITY_AVAILABLE="$(/usr/bin/plutil -extract parity.available raw -o - "$CONVERSION_MANIFEST")"
-TEXT_COSINE="$(/usr/bin/plutil -extract parity.textCosine raw -o - "$CONVERSION_MANIFEST")"
-IMAGE_COSINE="$(/usr/bin/plutil -extract parity.imageCosine raw -o - "$CONVERSION_MANIFEST")"
-
-if [ "$ACTUAL_CHECKPOINT_SHA" != "$EXPECTED_CHECKPOINT_SHA" ] || \
-   [ "$ACTUAL_SOURCE_REVISION" != "$EXPECTED_SOURCE_REVISION" ]; then
-  echo "Converted Core ML provenance does not match the pinned model manifest." >&2
-  exit 1
-fi
-if [ "$PARITY_AVAILABLE" != "true" ] || \
-   ! awk -v value="$TEXT_COSINE" 'BEGIN { exit !(value >= 0.999) }' || \
-   ! awk -v value="$IMAGE_COSINE" 'BEGIN { exit !(value >= 0.999) }'; then
-  echo "Converted Core ML parity is missing or below 0.999." >&2
-  exit 1
-fi
+"$ROOT_DIR/.venv/bin/python" \
+  "$ROOT_DIR/scripts/verify_chinese_clip_coreml_artifacts.py" \
+  --model-manifest "$MODEL_MANIFEST" \
+  --conversion-manifest "$CONVERSION_MANIFEST"
 
 for model_name in "${MODEL_NAMES[@]}"; do
   source_path="$CONVERTED_DIR/$model_name"
