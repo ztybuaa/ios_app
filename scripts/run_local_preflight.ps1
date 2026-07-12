@@ -19,6 +19,11 @@ try {
     & $VenvPython "scripts\validate_ios_project.py"
 
     Write-Host ""
+    Write-Host "== Semantic indexing performance policy =="
+    & $VenvPython "scripts\validate_semantic_search_performance.py" --query-profile cat
+    & $VenvPython "scripts\validate_semantic_search_performance.py" --query-profile regional
+
+    Write-Host ""
     Write-Host "== Semantic image eval fixtures =="
     & $VenvPython "scripts\prepare_semantic_eval_dataset.py"
 
@@ -33,6 +38,10 @@ try {
     Write-Host ""
     Write-Host "== Native Chinese semantic image retrieval =="
     & $VenvPython "scripts\eval_chinese_clip_rn50.py"
+
+    Write-Host ""
+    Write-Host "== Cat precision stress set =="
+    & $VenvPython "scripts\diagnose_rn50_precision.py"
 }
 finally {
     Pop-Location

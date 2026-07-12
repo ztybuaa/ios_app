@@ -17,8 +17,8 @@ struct InferenceView: View {
         }
 
         Section("性能") {
-            MetricRow(label: "模型加载", value: String(format: "%.2f ms", inference.loadTimeMs))
-            MetricRow(label: "单次推理", value: String(format: "%.2f ms", inference.inferenceTimeMs))
+            MetricRow(label: "意图模型加载", value: String(format: "%.2f ms", inference.loadTimeMs))
+            MetricRow(label: "意图识别推理", value: String(format: "%.2f ms", inference.inferenceTimeMs))
             MetricRow(label: "当前内存", value: inference.memoryMB.map { String(format: "%.2f MB", $0) } ?? "不可用")
         }
     }

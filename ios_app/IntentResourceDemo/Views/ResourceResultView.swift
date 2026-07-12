@@ -10,12 +10,52 @@ struct ResourceResultView: View {
     var body: some View {
         Section("资源模块") {
             MetricRow(label: "模块", value: result.moduleName)
-            MetricRow(label: "检索耗时", value: String(format: "%.2f ms", result.searchTimeMs))
+            MetricRow(label: "端到端检索", value: duration(result.searchTimeMs))
             MetricRow(label: "当前内存", value: result.memoryMB.map { String(format: "%.2f MB", $0) } ?? "不可用")
+        }
+
+        if let metrics = result.semanticMetrics {
+            Section("RN50 语义检索") {
+                MetricRow(label: "模型加载", value: duration(metrics.modelLoadTimeMs))
+                MetricRow(label: "语义总耗时", value: duration(metrics.totalWallMs))
+                MetricRow(label: "全图粗排", value: duration(metrics.fullPassWallMs))
+                MetricRow(label: "区域重排", value: duration(metrics.rerankWallMs))
+                MetricRow(
+                    label: "扫描 / 重排",
+                    value: "\(metrics.scannedAssetCount) / \(metrics.shortlistAssetCount) 张"
+                )
+                MetricRow(
+                    label: "图像推理",
+                    value: "全图 \(metrics.fullPredictionCount)，区域 \(metrics.regionPredictionCount)"
+                )
+                MetricRow(
+                    label: "缓存命中",
+                    value: "内存 \(metrics.memoryCacheHits)，磁盘 \(metrics.diskCacheHits)"
+                )
+                MetricRow(
+                    label: "缓存未命中",
+                    value: "\(metrics.cacheMisses)"
+                )
+                if metrics.imageRequestFailures > 0 ||
+                    metrics.corruptCacheEvictions > 0 ||
+                    metrics.cacheStorageUnavailable > 0 {
+                    MetricRow(
+                        label: "异常计数",
+                        value: "图片 \(metrics.imageRequestFailures)，损坏缓存 \(metrics.corruptCacheEvictions)，存储 \(metrics.cacheStorageUnavailable)"
+                    )
+                }
+            }
         }
 
         CandidateSection(title: "资源候选", candidates: result.resourceCandidates)
         CandidateSection(title: "目标候选", candidates: result.targetCandidates)
+    }
+
+    private func duration(_ milliseconds: Double) -> String {
+        if milliseconds >= 1_000 {
+            return String(format: "%.2f s", milliseconds / 1_000)
+        }
+        return String(format: "%.2f ms", milliseconds)
     }
 }
 

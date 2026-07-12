@@ -25,6 +25,24 @@ struct ResourceSearchResult {
     let targetCandidates: [ResourceCandidate]
     let searchTimeMs: Double
     let memoryMB: Double?
+    let semanticMetrics: SemanticSearchMetrics?
+}
+
+struct SemanticSearchMetrics {
+    let modelLoadTimeMs: Double
+    let totalWallMs: Double
+    let fullPassWallMs: Double
+    let rerankWallMs: Double
+    let scannedAssetCount: Int
+    let shortlistAssetCount: Int
+    let memoryCacheHits: Int
+    let diskCacheHits: Int
+    let cacheMisses: Int
+    let corruptCacheEvictions: Int
+    let cacheStorageUnavailable: Int
+    let imageRequestFailures: Int
+    let fullPredictionCount: Int
+    let regionPredictionCount: Int
 }
 
 struct IndexedResourceItem: Codable, Identifiable {

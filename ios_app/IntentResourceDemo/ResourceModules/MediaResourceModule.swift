@@ -8,7 +8,7 @@ final class MediaResourceModule {
         kind: CandidateKind,
         slots: NormalizedSlots,
         limit: Int = 12
-    ) async throws -> [ResourceCandidate] {
+    ) async throws -> MediaSearchOutcome {
         try await ensureAccess()
 
         let plan = MediaQueryPlan(slots: slots)
@@ -24,13 +24,16 @@ final class MediaResourceModule {
         let assetList = (0..<assets.count).map { assets.object(at: $0) }
         if kind == .photo,
            plan.hasSearchTerm {
-            let semanticCandidates = try await SemanticImageSearchService.shared.search(
+            let semanticOutcome = try await SemanticImageSearchService.shared.search(
                 assets: assetList,
                 kind: kind,
                 slots: slots,
                 limit: limit
             )
-            return semanticCandidates
+            return MediaSearchOutcome(
+                candidates: semanticOutcome.candidates,
+                semanticMetrics: semanticOutcome.metrics
+            )
         }
 
         var candidates: [ResourceCandidate] = []
@@ -44,10 +47,13 @@ final class MediaResourceModule {
             }
         }
 
-        return candidates
-            .sorted { $0.score == $1.score ? $0.title < $1.title : $0.score > $1.score }
-            .prefix(limit)
-            .map { $0 }
+        return MediaSearchOutcome(
+            candidates: candidates
+                .sorted { $0.score == $1.score ? $0.title < $1.title : $0.score > $1.score }
+                .prefix(limit)
+                .map { $0 },
+            semanticMetrics: nil
+        )
     }
 
     private func ensureAccess() async throws {
@@ -439,6 +445,11 @@ final class MediaResourceModule {
         }
         return result
     }
+}
+
+struct MediaSearchOutcome {
+    let candidates: [ResourceCandidate]
+    let semanticMetrics: SemanticSearchMetrics?
 }
 
 private func uniqueExpandedLabels(_ labels: [String]) -> [String] {

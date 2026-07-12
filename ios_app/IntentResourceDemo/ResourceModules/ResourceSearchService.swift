@@ -18,7 +18,8 @@ final class ResourceSearchService {
                 resourceCandidates: [],
                 targetCandidates: [],
                 searchTimeMs: 0,
-                memoryMB: memoryBefore
+                memoryMB: memoryBefore,
+                semanticMetrics: nil
             )
         }
 
@@ -29,7 +30,8 @@ final class ResourceSearchService {
                 resourceCandidates: [],
                 targetCandidates: [],
                 searchTimeMs: elapsedMs(since: start),
-                memoryMB: PerformanceMonitor.currentResidentMemoryMB()
+                memoryMB: PerformanceMonitor.currentResidentMemoryMB(),
+                semanticMetrics: nil
             )
         }
 
@@ -43,7 +45,8 @@ final class ResourceSearchService {
                 resourceCandidates: [],
                 targetCandidates: [],
                 searchTimeMs: elapsedMs(since: start),
-                memoryMB: PerformanceMonitor.currentResidentMemoryMB()
+                memoryMB: PerformanceMonitor.currentResidentMemoryMB(),
+                semanticMetrics: nil
             )
         case .blocked(let message):
             return ResourceSearchResult(
@@ -52,34 +55,44 @@ final class ResourceSearchService {
                 resourceCandidates: [],
                 targetCandidates: [],
                 searchTimeMs: elapsedMs(since: start),
-                memoryMB: PerformanceMonitor.currentResidentMemoryMB()
+                memoryMB: PerformanceMonitor.currentResidentMemoryMB(),
+                semanticMetrics: nil
             )
         }
 
         do {
             let resourceCandidates: [ResourceCandidate]
             let moduleName: String
+            let semanticMetrics: SemanticSearchMetrics?
 
             switch intent {
             case "photo":
                 moduleName = "photo"
-                resourceCandidates = try await media.search(kind: .photo, slots: slots)
+                let outcome = try await media.search(kind: .photo, slots: slots)
+                resourceCandidates = outcome.candidates
+                semanticMetrics = outcome.semanticMetrics
             case "video":
                 moduleName = "video"
-                resourceCandidates = try await media.search(kind: .video, slots: slots)
+                let outcome = try await media.search(kind: .video, slots: slots)
+                resourceCandidates = outcome.candidates
+                semanticMetrics = outcome.semanticMetrics
             case "file":
                 moduleName = "file"
                 resourceCandidates = files.search(kind: .file, slots: slots)
+                semanticMetrics = nil
             case "folder":
                 moduleName = "folder"
                 resourceCandidates = files.search(kind: .folder, slots: slots)
+                semanticMetrics = nil
             case "contact":
                 moduleName = "contact"
                 let query = slots.searchKeyword ?? slots.resourcePhrase
                 resourceCandidates = try await contacts.searchContacts(keyword: query)
+                semanticMetrics = nil
             default:
                 moduleName = intent
                 resourceCandidates = []
+                semanticMetrics = nil
             }
 
             var statusMessages = [resourceCandidates.isEmpty ? "未找到资源候选。" : "资源候选检索完成，可点开查看详情。"]
@@ -98,7 +111,8 @@ final class ResourceSearchService {
                 resourceCandidates: resourceCandidates,
                 targetCandidates: targetCandidates,
                 searchTimeMs: elapsedMs(since: start),
-                memoryMB: PerformanceMonitor.currentResidentMemoryMB()
+                memoryMB: PerformanceMonitor.currentResidentMemoryMB(),
+                semanticMetrics: semanticMetrics
             )
         } catch {
             return ResourceSearchResult(
@@ -107,7 +121,8 @@ final class ResourceSearchService {
                 resourceCandidates: [],
                 targetCandidates: [],
                 searchTimeMs: elapsedMs(since: start),
-                memoryMB: PerformanceMonitor.currentResidentMemoryMB()
+                memoryMB: PerformanceMonitor.currentResidentMemoryMB(),
+                semanticMetrics: nil
             )
         }
     }

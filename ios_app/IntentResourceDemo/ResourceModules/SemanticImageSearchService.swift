@@ -1,3 +1,4 @@
+import CryptoKit
 import CoreImage
 import CoreML
 import Foundation
@@ -10,9 +11,9 @@ final class SemanticImageSearchService {
     private let ciContext = CIContext()
     private let rgbColorSpace = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
     private let models: Result<ChineseCLIPModels, Error>
+    private let embeddingStore = ImageEmbeddingStore(namespace: ChineseCLIPModelContract.profile)
     private let cacheLock = NSLock()
     private let predictionLock = NSLock()
-    private var imageEmbeddingCache: [String: [NamedEmbedding]] = [:]
     private var textEmbeddingCache: [String: [Float]] = [:]
 
     private init() {
@@ -28,47 +29,81 @@ final class SemanticImageSearchService {
         kind: CandidateKind,
         slots: NormalizedSlots,
         limit: Int
-    ) async throws -> [ResourceCandidate] {
+    ) async throws -> SemanticSearchOutcome {
+        let searchStarted = CFAbsoluteTimeGetCurrent()
         let models = try loadedModels()
         let query = SemanticQueryPlanner.query(for: slots)
         let positiveEmbeddings = try textEmbeddings(for: query.positivePrompts, models: models)
         let negativeEmbeddings = try textEmbeddings(for: query.negativePrompts, models: models)
-
-        var candidates: [ResourceCandidate] = []
         let scanAssets = Array(assets.prefix(semanticScanLimit(for: slots)))
-        let batchSize = 2
+        let metrics = SemanticSearchMetricsCollector()
 
-        for batchStart in stride(from: 0, to: scanAssets.count, by: batchSize) {
-            if Task.isCancelled { break }
-            let batchEnd = min(batchStart + batchSize, scanAssets.count)
-            let batch = Array(scanAssets[batchStart..<batchEnd])
+        let fullPassStarted = CFAbsoluteTimeGetCurrent()
+        let coarseMatches = try await fullMatches(
+            assets: scanAssets,
+            positiveEmbeddings: positiveEmbeddings,
+            negativeEmbeddings: negativeEmbeddings,
+            models: models,
+            metrics: metrics
+        )
+        let fullPassWallMs = elapsedMs(since: fullPassStarted)
 
-            try await withThrowingTaskGroup(of: ResourceCandidate?.self) { group in
-                for asset in batch {
-                    group.addTask {
-                        try await self.matchCandidate(
-                            asset: asset,
-                            kind: kind,
-                            query: query,
-                            positiveEmbeddings: positiveEmbeddings,
-                            negativeEmbeddings: negativeEmbeddings,
-                            models: models
-                        )
-                    }
-                }
-
-                for try await candidate in group {
-                    if let candidate {
-                        candidates.append(candidate)
-                    }
-                }
+        var finalMatches = coarseMatches
+        var shortlistCount = 0
+        var rerankWallMs = 0.0
+        if query.needsRegionScan, !coarseMatches.isEmpty {
+            let rerankStarted = CFAbsoluteTimeGetCurrent()
+            let shortlist = Array(
+                coarseMatches
+                    .sorted(by: isRankedBefore)
+                    .prefix(semanticRerankLimit(resultLimit: limit))
+            )
+            shortlistCount = shortlist.count
+            let refined = try await refinedMatches(
+                coarseMatches: shortlist,
+                positiveEmbeddings: positiveEmbeddings,
+                negativeEmbeddings: negativeEmbeddings,
+                models: models,
+                metrics: metrics
+            )
+            var matchesByID = Dictionary(
+                uniqueKeysWithValues: coarseMatches.map { ($0.asset.localIdentifier, $0) }
+            )
+            for match in refined {
+                matchesByID[match.asset.localIdentifier] = match
             }
+            finalMatches = Array(matchesByID.values)
+            rerankWallMs = elapsedMs(since: rerankStarted)
         }
 
-        return candidates
-            .sorted { $0.score == $1.score ? $0.title < $1.title : $0.score > $1.score }
+        let candidates = finalMatches
+            .filter {
+                $0.match.positive >= query.minimumSimilarity &&
+                $0.match.margin >= query.minimumMargin
+            }
+            .sorted(by: isRankedBefore)
             .prefix(limit)
-            .map { $0 }
+            .map {
+                makeCandidate(
+                    asset: $0.asset,
+                    kind: kind,
+                    score: score(for: $0.match),
+                    match: $0.match,
+                    prompts: query.positivePrompts
+                )
+            }
+
+        return SemanticSearchOutcome(
+            candidates: candidates,
+            metrics: metrics.snapshot(
+                modelLoadTimeMs: models.loadTimeMs,
+                totalWallMs: elapsedMs(since: searchStarted),
+                fullPassWallMs: fullPassWallMs,
+                rerankWallMs: rerankWallMs,
+                scannedAssetCount: scanAssets.count,
+                shortlistAssetCount: shortlistCount
+            )
+        )
     }
 
     private func loadedModels() throws -> ChineseCLIPModels {
@@ -90,26 +125,116 @@ final class SemanticImageSearchService {
         return 2_000
     }
 
-    private func matchCandidate(
-        asset: PHAsset,
-        kind: CandidateKind,
-        query: SemanticQuery,
+    private func semanticRerankLimit(resultLimit: Int) -> Int {
+        max(64, resultLimit * 8)
+    }
+
+    private func fullMatches(
+        assets: [PHAsset],
         positiveEmbeddings: [[Float]],
         negativeEmbeddings: [[Float]],
-        models: ChineseCLIPModels
-    ) async throws -> ResourceCandidate? {
-        guard let imageEmbeddings = try await imageEmbeddings(for: asset, query: query, models: models),
-              !imageEmbeddings.isEmpty else {
-            return nil
-        }
+        models: ChineseCLIPModels,
+        metrics: SemanticSearchMetricsCollector
+    ) async throws -> [SemanticAssetMatch] {
+        var matches: [SemanticAssetMatch] = []
+        let batchSize = 2
 
-        var bestMatch = SemanticMatchScore(
+        for batchStart in stride(from: 0, to: assets.count, by: batchSize) {
+            if Task.isCancelled { break }
+            let batchEnd = min(batchStart + batchSize, assets.count)
+            let batch = Array(assets[batchStart..<batchEnd])
+
+            try await withThrowingTaskGroup(of: SemanticAssetMatch?.self) { group in
+                for asset in batch {
+                    group.addTask {
+                        guard let embeddings = try await self.imageEmbeddings(
+                            for: asset,
+                            profile: .full,
+                            models: models,
+                            metrics: metrics
+                        ) else {
+                            return nil
+                        }
+                        return SemanticAssetMatch(
+                            asset: asset,
+                            match: self.bestMatch(
+                                embeddings: embeddings,
+                                positiveEmbeddings: positiveEmbeddings,
+                                negativeEmbeddings: negativeEmbeddings
+                            )
+                        )
+                    }
+                }
+
+                for try await match in group {
+                    if let match {
+                        matches.append(match)
+                    }
+                }
+            }
+        }
+        return matches
+    }
+
+    private func refinedMatches(
+        coarseMatches: [SemanticAssetMatch],
+        positiveEmbeddings: [[Float]],
+        negativeEmbeddings: [[Float]],
+        models: ChineseCLIPModels,
+        metrics: SemanticSearchMetricsCollector
+    ) async throws -> [SemanticAssetMatch] {
+        var matches: [SemanticAssetMatch] = []
+        let batchSize = 2
+
+        for batchStart in stride(from: 0, to: coarseMatches.count, by: batchSize) {
+            if Task.isCancelled { break }
+            let batchEnd = min(batchStart + batchSize, coarseMatches.count)
+            let batch = Array(coarseMatches[batchStart..<batchEnd])
+
+            try await withThrowingTaskGroup(of: SemanticAssetMatch.self) { group in
+                for coarseMatch in batch {
+                    group.addTask {
+                        guard let embeddings = try await self.imageEmbeddings(
+                            for: coarseMatch.asset,
+                            profile: .regions,
+                            models: models,
+                            metrics: metrics
+                        ) else {
+                            return coarseMatch
+                        }
+                        return SemanticAssetMatch(
+                            asset: coarseMatch.asset,
+                            match: self.bestMatch(
+                                embeddings: embeddings,
+                                positiveEmbeddings: positiveEmbeddings,
+                                negativeEmbeddings: negativeEmbeddings,
+                                initial: coarseMatch.match
+                            )
+                        )
+                    }
+                }
+
+                for try await match in group {
+                    matches.append(match)
+                }
+            }
+        }
+        return matches
+    }
+
+    private func bestMatch(
+        embeddings: [NamedEmbedding],
+        positiveEmbeddings: [[Float]],
+        negativeEmbeddings: [[Float]],
+        initial: SemanticMatchScore? = nil
+    ) -> SemanticMatchScore {
+        var bestMatch = initial ?? SemanticMatchScore(
             positive: -1,
             negative: -1,
             margin: -.infinity,
             cropName: "none"
         )
-        for imageEmbedding in imageEmbeddings {
+        for imageEmbedding in embeddings {
             let positive = positiveEmbeddings
                 .map { cosineSimilarity(imageEmbedding.values, $0) }
                 .max() ?? -1
@@ -126,20 +251,25 @@ final class SemanticImageSearchService {
                 )
             }
         }
+        return bestMatch
+    }
 
-        guard bestMatch.positive >= query.minimumSimilarity,
-              bestMatch.margin >= query.minimumMargin else {
-            return nil
+    private func isRankedBefore(_ lhs: SemanticAssetMatch, _ rhs: SemanticAssetMatch) -> Bool {
+        if lhs.match.margin != rhs.match.margin {
+            return lhs.match.margin > rhs.match.margin
         }
+        if lhs.match.positive != rhs.match.positive {
+            return lhs.match.positive > rhs.match.positive
+        }
+        return lhs.asset.localIdentifier < rhs.asset.localIdentifier
+    }
 
-        let score = Double(bestMatch.margin * 1_000 + bestMatch.positive * 10)
-        return makeCandidate(
-            asset: asset,
-            kind: kind,
-            score: score,
-            match: bestMatch,
-            prompts: query.positivePrompts
-        )
+    private func score(for match: SemanticMatchScore) -> Double {
+        Double(match.margin * 1_000 + match.positive * 10)
+    }
+
+    private func elapsedMs(since start: CFAbsoluteTime) -> Double {
+        (CFAbsoluteTimeGetCurrent() - start) * 1_000
     }
 
     private func textEmbeddings(
@@ -187,15 +317,30 @@ final class SemanticImageSearchService {
 
     private func imageEmbeddings(
         for asset: PHAsset,
-        query: SemanticQuery,
-        models: ChineseCLIPModels
+        profile: ImageEmbeddingProfile,
+        models: ChineseCLIPModels,
+        metrics: SemanticSearchMetricsCollector
     ) async throws -> [NamedEmbedding]? {
-        let cacheKey = "\(asset.localIdentifier)|\(query.embeddingProfile)"
-        if let cached = cachedImageEmbeddings(cacheKey) {
+        let cacheKey = ImageEmbeddingCacheKey(asset: asset, profile: profile)
+        switch embeddingStore.lookup(cacheKey) {
+        case .memory(let cached):
+            metrics.recordMemoryHit()
             return cached
+        case .disk(let cached):
+            metrics.recordDiskHit()
+            return cached
+        case .corrupt:
+            metrics.recordCorruptEviction()
+        case .unavailable:
+            metrics.recordStorageUnavailable()
+        case .miss:
+            break
         }
-        guard let image = await requestImage(asset: asset, needsRegionScan: query.needsRegionScan),
-              let imageTensors = try imageTensors(from: image, needsRegionScan: query.needsRegionScan) else {
+        metrics.recordCacheMiss()
+
+        guard let image = await requestImage(asset: asset, profile: profile),
+              let imageTensors = try imageTensors(from: image, profile: profile) else {
+            metrics.recordImageRequestFailure()
             return nil
         }
 
@@ -210,11 +355,12 @@ final class SemanticImageSearchService {
             let values = try normalizedEmbedding(features.floatValues, source: "image_features")
             embeddings.append(NamedEmbedding(name: item.name, values: values))
         }
+        metrics.recordPredictions(profile: profile, count: embeddings.count)
 
         guard !embeddings.isEmpty else {
             return nil
         }
-        setCachedImageEmbeddings(embeddings, for: cacheKey)
+        embeddingStore.store(embeddings, for: cacheKey)
         return embeddings
     }
 
@@ -227,7 +373,7 @@ final class SemanticImageSearchService {
         return try model.prediction(from: provider)
     }
 
-    private func requestImage(asset: PHAsset, needsRegionScan: Bool) async -> UIImage? {
+    private func requestImage(asset: PHAsset, profile: ImageEmbeddingProfile) async -> UIImage? {
         await withCheckedContinuation { continuation in
             let lock = NSLock()
             var didResume = false
@@ -241,14 +387,13 @@ final class SemanticImageSearchService {
             }
 
             let options = PHImageRequestOptions()
-            options.deliveryMode = .highQualityFormat
-            options.resizeMode = .exact
+            options.deliveryMode = profile == .full ? .fastFormat : .highQualityFormat
+            options.resizeMode = profile == .full ? .fast : .exact
             options.isNetworkAccessAllowed = false
 
-            let side = needsRegionScan ? 900 : 512
             PHImageManager.default().requestImage(
                 for: asset,
-                targetSize: CGSize(width: side, height: side),
+                targetSize: CGSize(width: profile.requestSide, height: profile.requestSide),
                 contentMode: .aspectFit,
                 options: options
             ) { image, info in
@@ -267,7 +412,7 @@ final class SemanticImageSearchService {
 
     private func imageTensors(
         from image: UIImage,
-        needsRegionScan: Bool
+        profile: ImageEmbeddingProfile
     ) throws -> [NamedImageTensor]? {
         guard let sourceImage = CIImage(image: image)?.translatedToOrigin() else {
             return nil
@@ -275,13 +420,15 @@ final class SemanticImageSearchService {
 
         let targetSize = CGSize(width: ChineseCLIPModelContract.imageSize, height: ChineseCLIPModelContract.imageSize)
         var views: [(String, CIImage)] = []
-        if let full = sourceImage.resizeBicubic(size: targetSize) {
-            views.append(("full", full))
-        }
-        if let center = sourceImage.cropToSquare(at: .center)?.resizeBicubic(size: targetSize) {
-            views.append(("center", center))
-        }
-        if needsRegionScan {
+        switch profile {
+        case .full:
+            if let full = sourceImage.resizeBicubic(size: targetSize) {
+                views.append(("full", full))
+            }
+        case .regions:
+            if let center = sourceImage.cropToSquare(at: .center)?.resizeBicubic(size: targetSize) {
+                views.append(("center", center))
+            }
             for anchor in RegionAnchor.cornerAnchors {
                 if let crop = sourceImage.cropToSquare(at: anchor)?.resizeBicubic(size: targetSize) {
                     views.append((anchor.rawValue, crop))
@@ -386,18 +533,6 @@ final class SemanticImageSearchService {
         return values.map { $0 / norm }
     }
 
-    private func cachedImageEmbeddings(_ key: String) -> [NamedEmbedding]? {
-        cacheLock.lock()
-        defer { cacheLock.unlock() }
-        return imageEmbeddingCache[key]
-    }
-
-    private func setCachedImageEmbeddings(_ value: [NamedEmbedding], for key: String) {
-        cacheLock.lock()
-        imageEmbeddingCache[key] = value
-        cacheLock.unlock()
-    }
-
     private func cachedTextEmbedding(_ key: String) -> [Float]? {
         cacheLock.lock()
         defer { cacheLock.unlock() }
@@ -415,8 +550,10 @@ private struct ChineseCLIPModels {
     let tokenizer: ChineseCLIPTokenizer
     let image: MLModel
     let text: MLModel
+    let loadTimeMs: Double
 
     init(bundle: Bundle) throws {
+        let started = CFAbsoluteTimeGetCurrent()
         tokenizer = try ChineseCLIPTokenizer(bundle: bundle)
 
         let configuration = MLModelConfiguration()
@@ -446,6 +583,7 @@ private struct ChineseCLIPModels {
             inputType: .int32,
             output: "text_features"
         )
+        loadTimeMs = (CFAbsoluteTimeGetCurrent() - started) * 1_000
     }
 
     private static func loadModel(
@@ -493,7 +631,7 @@ private enum ChineseCLIPModelContract {
     static let imageModelName = "chinese_clip_rn50_image"
     static let imageSize = 224
     static let embeddingDimensions = 1_024
-    static let profile = "chinese-clip-rn50-fp16-v1"
+    static let profile = "chinese-clip-rn50-b196ee3e-fp16-preprocess-v1-crops-v1"
 }
 
 private enum ChineseCLIPError: LocalizedError {
@@ -559,7 +697,7 @@ private enum SemanticQueryPlanner {
         } else if wantsScreen {
             negativePrompts = ["小猫", "小狗", "风景", "人像", "宠物"]
         } else if wantsCat {
-            negativePrompts = ["狗的照片", "野生动物照片", "老虎照片", "风景照片", "人物照片", "手机截图"]
+            negativePrompts = ["其它动物照片", "狗的照片", "野生动物照片", "老虎照片", "风景照片", "人物照片", "手机截图"]
         } else if wantsDog {
             negativePrompts = ["猫的照片", "野生动物照片", "老虎照片", "风景照片", "人物照片", "手机截图"]
         } else if wantsScenery {
@@ -573,7 +711,7 @@ private enum SemanticQueryPlanner {
         return SemanticQuery(
             positivePrompts: orderedUnique([subject]),
             negativePrompts: orderedUnique(negativePrompts),
-            needsRegionScan: true,
+            needsRegionScan: !wantsCat && !wantsDog,
             minimumSimilarity: ChineseCLIPRN50Config.minimumSimilarity,
             minimumMargin: wantsScreen && !wantsGame
                 ? ChineseCLIPRN50Config.screenshotMinimumMargin
@@ -611,15 +749,298 @@ private struct SemanticQuery {
     let needsRegionScan: Bool
     let minimumSimilarity: Float
     let minimumMargin: Float
+}
 
-    var embeddingProfile: String {
-        "\(ChineseCLIPModelContract.profile)-\(needsRegionScan ? "regions" : "full")"
+struct SemanticSearchOutcome {
+    let candidates: [ResourceCandidate]
+    let metrics: SemanticSearchMetrics
+}
+
+private struct SemanticAssetMatch {
+    let asset: PHAsset
+    let match: SemanticMatchScore
+}
+
+private struct NamedEmbedding: Codable {
+    let name: String
+    let values: [Float]
+}
+
+private enum ImageEmbeddingProfile: String, Codable, Equatable {
+    case full
+    case regions
+
+    var requestSide: Int {
+        self == .full ? 512 : 900
+    }
+
+    var expectedNames: Set<String> {
+        switch self {
+        case .full:
+            return ["full"]
+        case .regions:
+            return ["center", "top-left", "top-right", "bottom-left", "bottom-right"]
+        }
     }
 }
 
-private struct NamedEmbedding {
-    let name: String
-    let values: [Float]
+private struct ImageEmbeddingCacheKey {
+    let rawValue: String
+    let profile: ImageEmbeddingProfile
+    let allowsPersistence: Bool
+
+    init(asset: PHAsset, profile: ImageEmbeddingProfile) {
+        self.profile = profile
+        let modifiedAt: String
+        if let modificationDate = asset.modificationDate {
+            modifiedAt = String(Int64(modificationDate.timeIntervalSince1970 * 1_000))
+            allowsPersistence = true
+        } else {
+            modifiedAt = "session-only"
+            allowsPersistence = false
+        }
+        rawValue = [
+            asset.localIdentifier,
+            modifiedAt,
+            "\(asset.pixelWidth)x\(asset.pixelHeight)",
+            profile.rawValue
+        ].joined(separator: "|")
+    }
+}
+
+private enum EmbeddingCacheLookup {
+    case memory([NamedEmbedding])
+    case disk([NamedEmbedding])
+    case miss
+    case corrupt
+    case unavailable
+}
+
+private struct PersistentEmbeddingRecord: Codable {
+    let cacheKey: String
+    let profile: ImageEmbeddingProfile
+    let embeddings: [NamedEmbedding]
+}
+
+private final class NamedEmbeddingBox: NSObject {
+    let embeddings: [NamedEmbedding]
+
+    init(_ embeddings: [NamedEmbedding]) {
+        self.embeddings = embeddings
+    }
+}
+
+private final class ImageEmbeddingStore {
+    private let memory = NSCache<NSString, NamedEmbeddingBox>()
+    private let ioQueue = DispatchQueue(label: "IntentResourceDemo.ImageEmbeddingStore")
+    private let directoryURL: URL?
+
+    init(namespace: String) {
+        memory.countLimit = 512
+        guard let applicationSupport = FileManager.default.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        ).first else {
+            directoryURL = nil
+            return
+        }
+
+        var directory = applicationSupport
+            .appendingPathComponent("IntentResourceDemo", isDirectory: true)
+            .appendingPathComponent("SemanticImageEmbeddings", isDirectory: true)
+            .appendingPathComponent(namespace, isDirectory: true)
+        do {
+            try FileManager.default.createDirectory(
+                at: directory,
+                withIntermediateDirectories: true
+            )
+            var values = URLResourceValues()
+            values.isExcludedFromBackup = true
+            try directory.setResourceValues(values)
+            directoryURL = directory
+        } catch {
+            directoryURL = nil
+        }
+    }
+
+    func lookup(_ key: ImageEmbeddingCacheKey) -> EmbeddingCacheLookup {
+        if let cached = memory.object(forKey: key.rawValue as NSString) {
+            return .memory(cached.embeddings)
+        }
+        guard key.allowsPersistence else {
+            return .miss
+        }
+        guard let directoryURL else {
+            return .unavailable
+        }
+
+        let result: EmbeddingCacheLookup = ioQueue.sync {
+            let url = fileURL(for: key, directoryURL: directoryURL)
+            guard FileManager.default.fileExists(atPath: url.path) else {
+                return .miss
+            }
+            do {
+                let data = try Data(contentsOf: url, options: .mappedIfSafe)
+                let record = try PropertyListDecoder().decode(PersistentEmbeddingRecord.self, from: data)
+                guard record.cacheKey == key.rawValue,
+                      record.profile == key.profile,
+                      Self.isValid(record.embeddings, profile: key.profile) else {
+                    Self.removeCorruptFile(at: url)
+                    return .corrupt
+                }
+                return .disk(record.embeddings)
+            } catch {
+                Self.removeCorruptFile(at: url)
+                return .corrupt
+            }
+        }
+        if case .disk(let embeddings) = result {
+            memory.setObject(NamedEmbeddingBox(embeddings), forKey: key.rawValue as NSString)
+        }
+        return result
+    }
+
+    func store(_ embeddings: [NamedEmbedding], for key: ImageEmbeddingCacheKey) {
+        guard Self.isValid(embeddings, profile: key.profile) else { return }
+        memory.setObject(NamedEmbeddingBox(embeddings), forKey: key.rawValue as NSString)
+        guard key.allowsPersistence, let directoryURL else { return }
+
+        let record = PersistentEmbeddingRecord(
+            cacheKey: key.rawValue,
+            profile: key.profile,
+            embeddings: embeddings
+        )
+        ioQueue.async {
+            do {
+                let encoder = PropertyListEncoder()
+                encoder.outputFormat = .binary
+                let data = try encoder.encode(record)
+                try data.write(
+                    to: self.fileURL(for: key, directoryURL: directoryURL),
+                    options: .atomic
+                )
+            } catch {
+                NSLog("Chinese-CLIP embedding cache write failed: %@", error.localizedDescription)
+            }
+        }
+    }
+
+    private func fileURL(for key: ImageEmbeddingCacheKey, directoryURL: URL) -> URL {
+        let digest = SHA256.hash(data: Data(key.rawValue.utf8))
+            .map { String(format: "%02x", $0) }
+            .joined()
+        return directoryURL.appendingPathComponent(digest).appendingPathExtension("plist")
+    }
+
+    private static func isValid(
+        _ embeddings: [NamedEmbedding],
+        profile: ImageEmbeddingProfile
+    ) -> Bool {
+        let names = embeddings.map(\.name)
+        guard !embeddings.isEmpty,
+              Set(names).count == names.count,
+              Set(names).isSubset(of: profile.expectedNames),
+              (profile != .full || names == ["full"]) else {
+            return false
+        }
+        return embeddings.allSatisfy { embedding in
+            guard embedding.values.count == ChineseCLIPModelContract.embeddingDimensions,
+                  embedding.values.allSatisfy(\.isFinite) else {
+                return false
+            }
+            let norm = sqrt(embedding.values.reduce(Float(0)) { $0 + $1 * $1 })
+            return norm.isFinite && abs(norm - 1) < 0.01
+        }
+    }
+
+    private static func removeCorruptFile(at url: URL) {
+        do {
+            try FileManager.default.removeItem(at: url)
+        } catch {
+            NSLog("Chinese-CLIP corrupt cache cleanup failed: %@", error.localizedDescription)
+        }
+    }
+}
+
+private final class SemanticSearchMetricsCollector {
+    private let lock = NSLock()
+    private var memoryCacheHits = 0
+    private var diskCacheHits = 0
+    private var cacheMisses = 0
+    private var corruptCacheEvictions = 0
+    private var cacheStorageUnavailable = 0
+    private var imageRequestFailures = 0
+    private var fullPredictionCount = 0
+    private var regionPredictionCount = 0
+
+    func recordMemoryHit() {
+        withLock { memoryCacheHits += 1 }
+    }
+
+    func recordDiskHit() {
+        withLock { diskCacheHits += 1 }
+    }
+
+    func recordCacheMiss() {
+        withLock { cacheMisses += 1 }
+    }
+
+    func recordCorruptEviction() {
+        withLock { corruptCacheEvictions += 1 }
+    }
+
+    func recordStorageUnavailable() {
+        withLock { cacheStorageUnavailable += 1 }
+    }
+
+    func recordImageRequestFailure() {
+        withLock { imageRequestFailures += 1 }
+    }
+
+    func recordPredictions(profile: ImageEmbeddingProfile, count: Int) {
+        withLock {
+            switch profile {
+            case .full:
+                fullPredictionCount += count
+            case .regions:
+                regionPredictionCount += count
+            }
+        }
+    }
+
+    func snapshot(
+        modelLoadTimeMs: Double,
+        totalWallMs: Double,
+        fullPassWallMs: Double,
+        rerankWallMs: Double,
+        scannedAssetCount: Int,
+        shortlistAssetCount: Int
+    ) -> SemanticSearchMetrics {
+        lock.lock()
+        defer { lock.unlock() }
+        return SemanticSearchMetrics(
+            modelLoadTimeMs: modelLoadTimeMs,
+            totalWallMs: totalWallMs,
+            fullPassWallMs: fullPassWallMs,
+            rerankWallMs: rerankWallMs,
+            scannedAssetCount: scannedAssetCount,
+            shortlistAssetCount: shortlistAssetCount,
+            memoryCacheHits: memoryCacheHits,
+            diskCacheHits: diskCacheHits,
+            cacheMisses: cacheMisses,
+            corruptCacheEvictions: corruptCacheEvictions,
+            cacheStorageUnavailable: cacheStorageUnavailable,
+            imageRequestFailures: imageRequestFailures,
+            fullPredictionCount: fullPredictionCount,
+            regionPredictionCount: regionPredictionCount
+        )
+    }
+
+    private func withLock(_ body: () -> Void) {
+        lock.lock()
+        body()
+        lock.unlock()
+    }
 }
 
 private struct NamedImageTensor {

@@ -22,7 +22,7 @@
 
 | 查询 | 通过候选 | Top-3 |
 |---|---|---|
-| 小猫图片 | cats (top-right, m=0.0498) | cats (top-right, m=0.0498), corgi (center, m=-0.0374), beach (top-right, m=-0.0433) |
+| 小猫图片 | cats (full, m=0.0351) | cats (full, m=0.0351), corgi (center, m=-0.0374), beach (top-right, m=-0.0433) |
 | 小狗图片 | corgi (full, m=0.0429) | corgi (full, m=0.0429), beach (center, m=-0.0497), cats (top-left, m=-0.0506) |
 | 风景图片 | moraine_lake (full, m=0.0602), beach (top-right, m=0.0168) | moraine_lake (full, m=0.0602), savanna (center, m=0.0256), beach (top-right, m=0.0168) |
 | 美女图片 | portrait_woman (bottom-left, m=0.0741), woman_afro (bottom-left, m=0.0380) | portrait_woman (bottom-left, m=0.0741), woman_afro (bottom-left, m=0.0380), savanna (top-right, m=-0.0007) |

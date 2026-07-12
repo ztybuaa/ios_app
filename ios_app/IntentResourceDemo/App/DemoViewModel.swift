@@ -45,6 +45,8 @@ final class DemoViewModel: ObservableObject {
 
         isRunning = true
         message = nil
+        inference = nil
+        searchResult = nil
         markStage("模型已加载：准备推理")
 
         Task {
