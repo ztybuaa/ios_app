@@ -1,0 +1,1211 @@
+{
+  "controls": {
+    "changedVariable": "positive prompt surface only",
+    "fixedNegativePrompts": true,
+    "fixedRanking": "margin*1000 + positiveSimilarity*10",
+    "fixedThresholdGate": true,
+    "imageView": "full"
+  },
+  "dataset": {
+    "archive": "build/diagnostics/coco128/coco128.zip",
+    "bytes": 6983030,
+    "imageCount": 128,
+    "name": "COCO128",
+    "queryCount": 10,
+    "querySource": "scripts/validate_chinese_clip_multiclass_quality.py",
+    "sha256": "61e5e3028863d8ffc3b81d6a514603954889f0edd5e4b44c4ce60b2da99aeb8e",
+    "source": "https://github.com/ultralytics/assets/releases/download/v0.0.0/coco128.zip"
+  },
+  "experiment": "video_poster_prompt_proxy",
+  "hypothesis": "A video-specific Chinese prompt preserves subject retrieval quality when video poster frames are embedded by the existing Chinese-CLIP RN50 model.",
+  "model": {
+    "architecture": "RN50@RBT3-chinese",
+    "checkpointSHA256": "b196ee3ee528b70be1158ab1aafb1d2f1c801ad2d9ffb3bae31b0d305f82fc88",
+    "id": "OFA-Sys/chinese-clip-rn50"
+  },
+  "schemaVersion": 1,
+  "variants": [
+    {
+      "id": "subject_image",
+      "macroPrecisionAt5": 0.5,
+      "queries": [
+        {
+          "classID": 0,
+          "id": "person",
+          "precisionAt5": 1.0,
+          "prompt": "人物图片",
+          "subject": "人物",
+          "thresholdGate": {
+            "falsePositiveCount": 0,
+            "passingCount": 9,
+            "precision": 1.0,
+            "queryPass": true,
+            "truePositiveCount": 9
+          },
+          "top1Hit": true,
+          "top5": [
+            {
+              "imageID": "000000000328",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000459",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000529",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000389",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000446",
+              "relevant": true
+            }
+          ]
+        },
+        {
+          "classID": 2,
+          "id": "car",
+          "precisionAt5": 0.2,
+          "prompt": "汽车图片",
+          "subject": "汽车",
+          "thresholdGate": {
+            "falsePositiveCount": 0,
+            "passingCount": 1,
+            "precision": 1.0,
+            "queryPass": true,
+            "truePositiveCount": 1
+          },
+          "top1Hit": true,
+          "top5": [
+            {
+              "imageID": "000000000650",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000532",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000471",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000073",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000641",
+              "relevant": false
+            }
+          ]
+        },
+        {
+          "classID": 15,
+          "id": "cat",
+          "precisionAt5": 0.8,
+          "prompt": "小猫图片",
+          "subject": "小猫",
+          "thresholdGate": {
+            "falsePositiveCount": 0,
+            "passingCount": 4,
+            "precision": 1.0,
+            "queryPass": true,
+            "truePositiveCount": 4
+          },
+          "top1Hit": true,
+          "top5": [
+            {
+              "imageID": "000000000443",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000575",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000650",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000599",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000307",
+              "relevant": false
+            }
+          ]
+        },
+        {
+          "classID": 16,
+          "id": "dog",
+          "precisionAt5": 0.8,
+          "prompt": "小狗图片",
+          "subject": "小狗",
+          "thresholdGate": {
+            "falsePositiveCount": 1,
+            "passingCount": 6,
+            "precision": 0.833333,
+            "queryPass": false,
+            "truePositiveCount": 5
+          },
+          "top1Hit": true,
+          "top5": [
+            {
+              "imageID": "000000000074",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000394",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000042",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000491",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000581",
+              "relevant": true
+            }
+          ]
+        },
+        {
+          "classID": 26,
+          "id": "handbag",
+          "precisionAt5": 0.0,
+          "prompt": "手提包图片",
+          "subject": "手提包",
+          "thresholdGate": {
+            "falsePositiveCount": 0,
+            "passingCount": 0,
+            "precision": null,
+            "queryPass": false,
+            "truePositiveCount": 0
+          },
+          "top1Hit": false,
+          "top5": [
+            {
+              "imageID": "000000000042",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000438",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000474",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000446",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000490",
+              "relevant": false
+            }
+          ]
+        },
+        {
+          "classID": 41,
+          "id": "cup",
+          "precisionAt5": 0.6,
+          "prompt": "杯子图片",
+          "subject": "杯子",
+          "thresholdGate": {
+            "falsePositiveCount": 2,
+            "passingCount": 3,
+            "precision": 0.333333,
+            "queryPass": false,
+            "truePositiveCount": 1
+          },
+          "top1Hit": true,
+          "top5": [
+            {
+              "imageID": "000000000562",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000030",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000283",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000605",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000127",
+              "relevant": true
+            }
+          ]
+        },
+        {
+          "classID": 45,
+          "id": "bowl",
+          "precisionAt5": 0.6,
+          "prompt": "碗的图片",
+          "subject": "碗",
+          "thresholdGate": {
+            "falsePositiveCount": 0,
+            "passingCount": 1,
+            "precision": 1.0,
+            "queryPass": true,
+            "truePositiveCount": 1
+          },
+          "top1Hit": true,
+          "top5": [
+            {
+              "imageID": "000000000332",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000009",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000450",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000370",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000584",
+              "relevant": true
+            }
+          ]
+        },
+        {
+          "classID": 56,
+          "id": "chair",
+          "precisionAt5": 0.2,
+          "prompt": "椅子图片",
+          "subject": "椅子",
+          "thresholdGate": {
+            "falsePositiveCount": 3,
+            "passingCount": 4,
+            "precision": 0.25,
+            "queryPass": false,
+            "truePositiveCount": 1
+          },
+          "top1Hit": false,
+          "top5": [
+            {
+              "imageID": "000000000612",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000384",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000510",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000283",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000514",
+              "relevant": false
+            }
+          ]
+        },
+        {
+          "classID": 58,
+          "id": "potted_plant",
+          "precisionAt5": 0.2,
+          "prompt": "盆栽图片",
+          "subject": "盆栽",
+          "thresholdGate": {
+            "falsePositiveCount": 1,
+            "passingCount": 2,
+            "precision": 0.5,
+            "queryPass": false,
+            "truePositiveCount": 1
+          },
+          "top1Hit": false,
+          "top5": [
+            {
+              "imageID": "000000000370",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000030",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000569",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000612",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000143",
+              "relevant": false
+            }
+          ]
+        },
+        {
+          "classID": 74,
+          "id": "clock",
+          "precisionAt5": 0.6,
+          "prompt": "时钟图片",
+          "subject": "时钟",
+          "thresholdGate": {
+            "falsePositiveCount": 0,
+            "passingCount": 3,
+            "precision": 1.0,
+            "queryPass": true,
+            "truePositiveCount": 3
+          },
+          "top1Hit": true,
+          "top5": [
+            {
+              "imageID": "000000000064",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000626",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000078",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000612",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000357",
+              "relevant": false
+            }
+          ]
+        }
+      ],
+      "thresholdGatePrecision": {
+        "falsePositiveCount": 7,
+        "macroPrecisionOverQueriesWithPassing": 0.768519,
+        "microPrecision": 0.787879,
+        "minimumMargin": 0.012,
+        "minimumSimilarity": 0.47,
+        "passingCount": 33,
+        "queriesWithPassing": 9,
+        "queriesWithoutPassing": 1,
+        "queryPassRate": 0.5,
+        "queryPasses": 5,
+        "truePositiveCount": 26
+      },
+      "top1": {
+        "hits": 7,
+        "queryCount": 10,
+        "rate": 0.7
+      }
+    },
+    {
+      "id": "subject_video",
+      "macroPrecisionAt5": 0.48,
+      "queries": [
+        {
+          "classID": 0,
+          "id": "person",
+          "precisionAt5": 1.0,
+          "prompt": "人物视频",
+          "subject": "人物",
+          "thresholdGate": {
+            "falsePositiveCount": 0,
+            "passingCount": 8,
+            "precision": 1.0,
+            "queryPass": true,
+            "truePositiveCount": 8
+          },
+          "top1Hit": true,
+          "top5": [
+            {
+              "imageID": "000000000564",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000395",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000315",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000328",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000459",
+              "relevant": true
+            }
+          ]
+        },
+        {
+          "classID": 2,
+          "id": "car",
+          "precisionAt5": 0.4,
+          "prompt": "汽车视频",
+          "subject": "汽车",
+          "thresholdGate": {
+            "falsePositiveCount": 0,
+            "passingCount": 1,
+            "precision": 1.0,
+            "queryPass": true,
+            "truePositiveCount": 1
+          },
+          "top1Hit": true,
+          "top5": [
+            {
+              "imageID": "000000000650",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000532",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000625",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000641",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000540",
+              "relevant": true
+            }
+          ]
+        },
+        {
+          "classID": 15,
+          "id": "cat",
+          "precisionAt5": 0.6,
+          "prompt": "小猫视频",
+          "subject": "小猫",
+          "thresholdGate": {
+            "falsePositiveCount": 1,
+            "passingCount": 4,
+            "precision": 0.75,
+            "queryPass": false,
+            "truePositiveCount": 3
+          },
+          "top1Hit": true,
+          "top5": [
+            {
+              "imageID": "000000000599",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000443",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000575",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000307",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000490",
+              "relevant": false
+            }
+          ]
+        },
+        {
+          "classID": 16,
+          "id": "dog",
+          "precisionAt5": 0.8,
+          "prompt": "小狗视频",
+          "subject": "小狗",
+          "thresholdGate": {
+            "falsePositiveCount": 1,
+            "passingCount": 6,
+            "precision": 0.833333,
+            "queryPass": false,
+            "truePositiveCount": 5
+          },
+          "top1Hit": true,
+          "top5": [
+            {
+              "imageID": "000000000394",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000074",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000042",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000490",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000491",
+              "relevant": false
+            }
+          ]
+        },
+        {
+          "classID": 26,
+          "id": "handbag",
+          "precisionAt5": 0.0,
+          "prompt": "手提包视频",
+          "subject": "手提包",
+          "thresholdGate": {
+            "falsePositiveCount": 1,
+            "passingCount": 1,
+            "precision": 0.0,
+            "queryPass": false,
+            "truePositiveCount": 0
+          },
+          "top1Hit": false,
+          "top5": [
+            {
+              "imageID": "000000000387",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000572",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000042",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000446",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000394",
+              "relevant": false
+            }
+          ]
+        },
+        {
+          "classID": 41,
+          "id": "cup",
+          "precisionAt5": 0.4,
+          "prompt": "杯子视频",
+          "subject": "杯子",
+          "thresholdGate": {
+            "falsePositiveCount": 1,
+            "passingCount": 2,
+            "precision": 0.5,
+            "queryPass": false,
+            "truePositiveCount": 1
+          },
+          "top1Hit": true,
+          "top5": [
+            {
+              "imageID": "000000000562",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000283",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000326",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000387",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000605",
+              "relevant": true
+            }
+          ]
+        },
+        {
+          "classID": 45,
+          "id": "bowl",
+          "precisionAt5": 0.4,
+          "prompt": "碗视频",
+          "subject": "碗",
+          "thresholdGate": {
+            "falsePositiveCount": 0,
+            "passingCount": 1,
+            "precision": 1.0,
+            "queryPass": true,
+            "truePositiveCount": 1
+          },
+          "top1Hit": false,
+          "top5": [
+            {
+              "imageID": "000000000370",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000332",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000009",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000562",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000428",
+              "relevant": false
+            }
+          ]
+        },
+        {
+          "classID": 56,
+          "id": "chair",
+          "precisionAt5": 0.2,
+          "prompt": "椅子视频",
+          "subject": "椅子",
+          "thresholdGate": {
+            "falsePositiveCount": 4,
+            "passingCount": 5,
+            "precision": 0.2,
+            "queryPass": false,
+            "truePositiveCount": 1
+          },
+          "top1Hit": false,
+          "top5": [
+            {
+              "imageID": "000000000599",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000510",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000490",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000283",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000241",
+              "relevant": false
+            }
+          ]
+        },
+        {
+          "classID": 58,
+          "id": "potted_plant",
+          "precisionAt5": 0.4,
+          "prompt": "盆栽视频",
+          "subject": "盆栽",
+          "thresholdGate": {
+            "falsePositiveCount": 2,
+            "passingCount": 3,
+            "precision": 0.333333,
+            "queryPass": false,
+            "truePositiveCount": 1
+          },
+          "top1Hit": false,
+          "top5": [
+            {
+              "imageID": "000000000370",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000030",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000322",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000569",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000446",
+              "relevant": true
+            }
+          ]
+        },
+        {
+          "classID": 74,
+          "id": "clock",
+          "precisionAt5": 0.6,
+          "prompt": "时钟视频",
+          "subject": "时钟",
+          "thresholdGate": {
+            "falsePositiveCount": 0,
+            "passingCount": 0,
+            "precision": null,
+            "queryPass": false,
+            "truePositiveCount": 0
+          },
+          "top1Hit": true,
+          "top5": [
+            {
+              "imageID": "000000000064",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000626",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000078",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000599",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000387",
+              "relevant": false
+            }
+          ]
+        }
+      ],
+      "thresholdGatePrecision": {
+        "falsePositiveCount": 10,
+        "macroPrecisionOverQueriesWithPassing": 0.624074,
+        "microPrecision": 0.677419,
+        "minimumMargin": 0.012,
+        "minimumSimilarity": 0.47,
+        "passingCount": 31,
+        "queriesWithPassing": 9,
+        "queriesWithoutPassing": 1,
+        "queryPassRate": 0.3,
+        "queryPasses": 3,
+        "truePositiveCount": 21
+      },
+      "top1": {
+        "hits": 6,
+        "queryCount": 10,
+        "rate": 0.6
+      }
+    },
+    {
+      "id": "subject_only",
+      "macroPrecisionAt5": 0.46,
+      "queries": [
+        {
+          "classID": 0,
+          "id": "person",
+          "precisionAt5": 1.0,
+          "prompt": "人物",
+          "subject": "人物",
+          "thresholdGate": {
+            "falsePositiveCount": 0,
+            "passingCount": 2,
+            "precision": 1.0,
+            "queryPass": true,
+            "truePositiveCount": 2
+          },
+          "top1Hit": true,
+          "top5": [
+            {
+              "imageID": "000000000510",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000389",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000077",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000326",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000395",
+              "relevant": true
+            }
+          ]
+        },
+        {
+          "classID": 2,
+          "id": "car",
+          "precisionAt5": 0.2,
+          "prompt": "汽车",
+          "subject": "汽车",
+          "thresholdGate": {
+            "falsePositiveCount": 0,
+            "passingCount": 1,
+            "precision": 1.0,
+            "queryPass": true,
+            "truePositiveCount": 1
+          },
+          "top1Hit": true,
+          "top5": [
+            {
+              "imageID": "000000000650",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000073",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000625",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000532",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000322",
+              "relevant": false
+            }
+          ]
+        },
+        {
+          "classID": 15,
+          "id": "cat",
+          "precisionAt5": 0.6,
+          "prompt": "小猫",
+          "subject": "小猫",
+          "thresholdGate": {
+            "falsePositiveCount": 0,
+            "passingCount": 0,
+            "precision": null,
+            "queryPass": false,
+            "truePositiveCount": 0
+          },
+          "top1Hit": true,
+          "top5": [
+            {
+              "imageID": "000000000575",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000443",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000307",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000599",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000612",
+              "relevant": false
+            }
+          ]
+        },
+        {
+          "classID": 16,
+          "id": "dog",
+          "precisionAt5": 0.8,
+          "prompt": "小狗",
+          "subject": "小狗",
+          "thresholdGate": {
+            "falsePositiveCount": 1,
+            "passingCount": 4,
+            "precision": 0.75,
+            "queryPass": false,
+            "truePositiveCount": 3
+          },
+          "top1Hit": true,
+          "top5": [
+            {
+              "imageID": "000000000074",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000394",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000042",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000491",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000400",
+              "relevant": true
+            }
+          ]
+        },
+        {
+          "classID": 26,
+          "id": "handbag",
+          "precisionAt5": 0.0,
+          "prompt": "手提包",
+          "subject": "手提包",
+          "thresholdGate": {
+            "falsePositiveCount": 0,
+            "passingCount": 0,
+            "precision": null,
+            "queryPass": false,
+            "truePositiveCount": 0
+          },
+          "top1Hit": false,
+          "top5": [
+            {
+              "imageID": "000000000490",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000133",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000612",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000625",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000322",
+              "relevant": false
+            }
+          ]
+        },
+        {
+          "classID": 41,
+          "id": "cup",
+          "precisionAt5": 0.6,
+          "prompt": "杯子",
+          "subject": "杯子",
+          "thresholdGate": {
+            "falsePositiveCount": 1,
+            "passingCount": 1,
+            "precision": 0.0,
+            "queryPass": false,
+            "truePositiveCount": 0
+          },
+          "top1Hit": false,
+          "top5": [
+            {
+              "imageID": "000000000030",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000127",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000562",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000612",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000605",
+              "relevant": true
+            }
+          ]
+        },
+        {
+          "classID": 45,
+          "id": "bowl",
+          "precisionAt5": 0.6,
+          "prompt": "碗",
+          "subject": "碗",
+          "thresholdGate": {
+            "falsePositiveCount": 0,
+            "passingCount": 0,
+            "precision": null,
+            "queryPass": false,
+            "truePositiveCount": 0
+          },
+          "top1Hit": true,
+          "top5": [
+            {
+              "imageID": "000000000009",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000332",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000030",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000370",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000196",
+              "relevant": true
+            }
+          ]
+        },
+        {
+          "classID": 56,
+          "id": "chair",
+          "precisionAt5": 0.0,
+          "prompt": "椅子",
+          "subject": "椅子",
+          "thresholdGate": {
+            "falsePositiveCount": 6,
+            "passingCount": 6,
+            "precision": 0.0,
+            "queryPass": false,
+            "truePositiveCount": 0
+          },
+          "top1Hit": false,
+          "top5": [
+            {
+              "imageID": "000000000612",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000510",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000144",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000073",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000030",
+              "relevant": false
+            }
+          ]
+        },
+        {
+          "classID": 58,
+          "id": "potted_plant",
+          "precisionAt5": 0.2,
+          "prompt": "盆栽",
+          "subject": "盆栽",
+          "thresholdGate": {
+            "falsePositiveCount": 0,
+            "passingCount": 1,
+            "precision": 1.0,
+            "queryPass": true,
+            "truePositiveCount": 1
+          },
+          "top1Hit": true,
+          "top5": [
+            {
+              "imageID": "000000000030",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000370",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000612",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000569",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000595",
+              "relevant": false
+            }
+          ]
+        },
+        {
+          "classID": 74,
+          "id": "clock",
+          "precisionAt5": 0.6,
+          "prompt": "时钟",
+          "subject": "时钟",
+          "thresholdGate": {
+            "falsePositiveCount": 0,
+            "passingCount": 2,
+            "precision": 1.0,
+            "queryPass": true,
+            "truePositiveCount": 2
+          },
+          "top1Hit": true,
+          "top5": [
+            {
+              "imageID": "000000000064",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000626",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000612",
+              "relevant": false
+            },
+            {
+              "imageID": "000000000078",
+              "relevant": true
+            },
+            {
+              "imageID": "000000000073",
+              "relevant": false
+            }
+          ]
+        }
+      ],
+      "thresholdGatePrecision": {
+        "falsePositiveCount": 8,
+        "macroPrecisionOverQueriesWithPassing": 0.678571,
+        "microPrecision": 0.529412,
+        "minimumMargin": 0.012,
+        "minimumSimilarity": 0.47,
+        "passingCount": 17,
+        "queriesWithPassing": 7,
+        "queriesWithoutPassing": 3,
+        "queryPassRate": 0.4,
+        "queryPasses": 4,
+        "truePositiveCount": 9
+      },
+      "top1": {
+        "hits": 7,
+        "queryCount": 10,
+        "rate": 0.7
+      }
+    }
+  ]
+}

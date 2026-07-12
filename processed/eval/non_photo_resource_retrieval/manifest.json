@@ -1,0 +1,479 @@
+{
+  "version": 1,
+  "description": "Deterministic synthetic regression set for non-photo resource retrieval. It contains no private user data.",
+  "reference_date": "2026-07-13",
+  "candidates": [
+    {
+      "id": "file-east-contract-pdf",
+      "kind": "file",
+      "title": "华东供应商合同.pdf",
+      "path": "项目资料/法务/华东供应商合同.pdf",
+      "summary": "华东区供应协议、付款条款和续约记录",
+      "tags": ["合同", "供应商", "华东", "法务"],
+      "content_terms": ["付款条款", "续约", "交付周期"],
+      "format": "PDF",
+      "updated_at": "2026-07-11"
+    },
+    {
+      "id": "file-west-contract-docx",
+      "kind": "file",
+      "title": "华西供应商合同.docx",
+      "path": "项目资料/法务/华西供应商合同.docx",
+      "summary": "华西区供应协议和法务修订记录",
+      "tags": ["合同", "供应商", "华西", "法务"],
+      "content_terms": ["违约责任", "修订", "交付周期"],
+      "format": "Word",
+      "updated_at": "2026-07-09"
+    },
+    {
+      "id": "file-stellar-report-q1",
+      "kind": "file",
+      "title": "星河项目一季度进度报告.pdf",
+      "path": "星河项目/报告/星河项目一季度进度报告.pdf",
+      "summary": "第一季度里程碑、风险和预算",
+      "tags": ["星河项目", "进度报告", "一季度"],
+      "content_terms": ["里程碑", "项目风险", "预算"],
+      "format": "PDF",
+      "updated_at": "2026-04-02"
+    },
+    {
+      "id": "file-stellar-report-q2",
+      "kind": "file",
+      "title": "星河项目二季度进度报告.pptx",
+      "path": "星河项目/报告/星河项目二季度进度报告.pptx",
+      "summary": "第二季度最新里程碑、风险和下一步计划",
+      "tags": ["星河项目", "进度报告", "二季度"],
+      "content_terms": ["里程碑", "项目风险", "下一步计划"],
+      "format": "PPT",
+      "updated_at": "2026-07-12"
+    },
+    {
+      "id": "file-budget-xlsx",
+      "kind": "file",
+      "title": "2026年度预算表.xlsx",
+      "path": "财务/2026年度预算表.xlsx",
+      "summary": "部门年度预算、实际支出和差异",
+      "tags": ["预算", "财务", "年度"],
+      "content_terms": ["支出", "差异", "成本中心"],
+      "format": "Excel",
+      "updated_at": "2026-06-30"
+    },
+    {
+      "id": "file-api-meeting-notes",
+      "kind": "file",
+      "title": "API评审会议纪要.docx",
+      "path": "会议纪要/API评审会议纪要.docx",
+      "summary": "接口设计评审、待办事项和负责人",
+      "tags": ["API", "评审", "会议纪要"],
+      "content_terms": ["接口设计", "待办事项", "负责人"],
+      "format": "Word",
+      "updated_at": "2026-07-08"
+    },
+    {
+      "id": "file-latest-invoice-pdf",
+      "kind": "file",
+      "title": "七月差旅发票.pdf",
+      "path": "财务/报销/七月差旅发票.pdf",
+      "summary": "七月出差交通和住宿报销凭证",
+      "tags": ["发票", "差旅", "报销"],
+      "content_terms": ["交通", "住宿", "凭证"],
+      "format": "PDF",
+      "updated_at": "2026-07-12"
+    },
+    {
+      "id": "file-product-roadmap",
+      "kind": "file",
+      "title": "产品路线图.pptx",
+      "path": "产品/产品路线图.pptx",
+      "summary": "下半年版本规划和功能优先级",
+      "tags": ["产品", "路线图", "规划"],
+      "content_terms": ["版本", "功能", "优先级"],
+      "format": "PPT",
+      "updated_at": "2026-07-07"
+    },
+    {
+      "id": "folder-stellar-project",
+      "kind": "folder",
+      "title": "星河项目资料",
+      "path": "项目/星河项目资料",
+      "summary": "星河项目计划、报告和会议材料",
+      "tags": ["星河项目", "项目资料"],
+      "child_terms": ["进度报告", "项目计划", "API评审"],
+      "updated_at": "2026-07-12"
+    },
+    {
+      "id": "folder-stellar-archive",
+      "kind": "folder",
+      "title": "星河项目历史归档",
+      "path": "归档/星河项目历史归档",
+      "summary": "星河项目往年版本和旧会议材料",
+      "tags": ["星河项目", "历史", "归档"],
+      "child_terms": ["旧版报告", "历史计划"],
+      "updated_at": "2025-12-31"
+    },
+    {
+      "id": "folder-contract-archive",
+      "kind": "folder",
+      "title": "供应商合同归档",
+      "path": "法务/供应商合同归档",
+      "summary": "各区域供应商协议和法务修订记录",
+      "tags": ["供应商", "合同", "法务"],
+      "child_terms": ["付款条款", "续约记录", "盖章扫描件"],
+      "updated_at": "2026-07-11"
+    },
+    {
+      "id": "folder-photo-backup",
+      "kind": "folder",
+      "title": "旅行照片备份",
+      "path": "备份/旅行照片备份",
+      "summary": "旅行照片和精选图片的备份",
+      "tags": ["照片", "旅行", "备份"],
+      "child_terms": ["海边", "山景", "合影"],
+      "updated_at": "2026-07-05"
+    },
+    {
+      "id": "folder-import-templates",
+      "kind": "folder",
+      "title": "导入模板文件夹",
+      "path": "业务/导入模板文件夹",
+      "summary": "CRM导入模板和字段说明",
+      "tags": ["导入", "模板", "CRM"],
+      "child_terms": ["客户模板", "字段说明", "示例数据"],
+      "updated_at": "2026-06-21"
+    },
+    {
+      "id": "folder-finance",
+      "kind": "folder",
+      "title": "财务报销",
+      "path": "财务/财务报销",
+      "summary": "预算、发票和报销材料",
+      "tags": ["财务", "报销"],
+      "child_terms": ["年度预算", "差旅发票", "报销凭证"],
+      "updated_at": "2026-07-10"
+    },
+    {
+      "id": "folder-meeting-notes",
+      "kind": "folder",
+      "title": "会议纪要",
+      "path": "团队/会议纪要",
+      "summary": "周会、评审会和复盘记录",
+      "tags": ["会议", "纪要", "团队"],
+      "child_terms": ["API评审", "周会", "复盘"],
+      "updated_at": "2026-07-08"
+    },
+    {
+      "id": "contact-zhang-ming",
+      "kind": "contact",
+      "name": "张明",
+      "nickname": "小明",
+      "phonetic": ["zhang ming", "zhangming", "zm"],
+      "organization": "星河科技",
+      "job_title": "产品经理",
+      "phones": ["+86 138 0013 8000"],
+      "emails": ["ming.zhang@example.com"]
+    },
+    {
+      "id": "contact-zhang-min",
+      "kind": "contact",
+      "name": "张敏",
+      "nickname": "敏姐",
+      "phonetic": ["zhang min", "zhangmin"],
+      "organization": "星河设计",
+      "job_title": "视觉设计师",
+      "phones": ["+86 138 0013 8001"],
+      "emails": ["min.zhang@example.com"]
+    },
+    {
+      "id": "contact-li-na",
+      "kind": "contact",
+      "name": "李娜",
+      "nickname": "娜娜",
+      "phonetic": ["li na", "lina"],
+      "organization": "远山律师事务所",
+      "job_title": "律师",
+      "phones": ["+86 139 1200 7788"],
+      "emails": ["na.li@example.com"]
+    },
+    {
+      "id": "contact-wang-wei",
+      "kind": "contact",
+      "name": "王伟",
+      "nickname": "老王",
+      "phonetic": ["wang wei", "wangwei"],
+      "organization": "华东供应链",
+      "job_title": "采购经理",
+      "phones": ["+86 137 9000 2468"],
+      "emails": ["wei.wang@example.com"]
+    },
+    {
+      "id": "contact-alice-chen",
+      "kind": "contact",
+      "name": "陈艾丽",
+      "nickname": "Alice",
+      "phonetic": ["alice chen", "alicechen", "chen aili"],
+      "organization": "Northwind Labs",
+      "job_title": "Research Engineer",
+      "phones": ["+1 415 555 0188"],
+      "emails": ["alice.chen@example.com"]
+    },
+    {
+      "id": "contact-lin-na",
+      "kind": "contact",
+      "name": "林楠",
+      "nickname": "小林",
+      "phonetic": ["lin nan", "linnan"],
+      "organization": "青云数据",
+      "job_title": "数据工程师",
+      "phones": ["+86 139 1200 7799"],
+      "emails": ["nan.lin@example.com"]
+    },
+    {
+      "id": "contact-zhao-lei",
+      "kind": "contact",
+      "name": "赵磊",
+      "nickname": "磊哥",
+      "phonetic": ["zhao lei", "zhaolei"],
+      "organization": "华北物流",
+      "job_title": "运营经理",
+      "phones": ["+86 136 8000 1357"],
+      "emails": ["lei.zhao@example.com"]
+    },
+    {
+      "id": "contact-support-east",
+      "kind": "contact",
+      "name": "华东客户支持",
+      "nickname": "华东客服",
+      "phonetic": ["huadong kefu", "huadongkehu zhichi"],
+      "organization": "客户服务中心",
+      "job_title": "服务台",
+      "phones": ["400 800 1234"],
+      "emails": ["east-support@example.com"]
+    }
+  ],
+  "queries": [
+    {
+      "id": "file-region-format",
+      "kind": "file",
+      "phrase": "把华东供应商合同PDF发给法务",
+      "keyword": "华东供应商合同",
+      "qualifiers": {"format": ["PDF"]},
+      "expected": ["file-east-contract-pdf"]
+    },
+    {
+      "id": "file-recent-project-report",
+      "kind": "file",
+      "phrase": "找最近的星河项目进度报告",
+      "keyword": "最近的星河项目进度报告",
+      "qualifiers": {"selection_hint": ["recent"]},
+      "expected": ["file-stellar-report-q2"]
+    },
+    {
+      "id": "file-infix-variation",
+      "kind": "file",
+      "phrase": "查找供应合同",
+      "keyword": "供应合同",
+      "qualifiers": {},
+      "expected": ["file-east-contract-pdf", "file-west-contract-docx"]
+    },
+    {
+      "id": "file-format-and-subject",
+      "kind": "file",
+      "phrase": "打开年度预算Excel",
+      "keyword": "年度预算",
+      "qualifiers": {"format": ["Excel"]},
+      "expected": ["file-budget-xlsx"]
+    },
+    {
+      "id": "file-structured-only-recent-pdf",
+      "kind": "file",
+      "phrase": "打开最新的PDF文件",
+      "keyword": "最新PDF",
+      "qualifiers": {"format": ["PDF"], "selection_hint": ["recent"]},
+      "expected": ["file-latest-invoice-pdf"]
+    },
+    {
+      "id": "file-meeting-notes",
+      "kind": "file",
+      "phrase": "找API评审会议纪要",
+      "keyword": "API评审会议纪要",
+      "qualifiers": {},
+      "expected": ["file-api-meeting-notes"]
+    },
+    {
+      "id": "file-open-unknown-topic",
+      "kind": "file",
+      "phrase": "找量子芯片实验记录",
+      "keyword": "量子芯片实验记录",
+      "qualifiers": {},
+      "expected": []
+    },
+    {
+      "id": "file-open-wrong-domain",
+      "kind": "file",
+      "phrase": "找王伟手机号文件",
+      "keyword": "王伟手机号",
+      "qualifiers": {},
+      "expected": []
+    },
+    {
+      "id": "file-open-structured-unknown",
+      "kind": "file",
+      "phrase": "找最新的量子芯片实验记录PDF",
+      "keyword": "最新量子芯片实验记录",
+      "qualifiers": {"format": ["PDF"], "selection_hint": ["recent"]},
+      "expected": []
+    },
+    {
+      "id": "folder-exact-title",
+      "kind": "folder",
+      "phrase": "打开星河项目资料文件夹",
+      "keyword": "星河项目资料",
+      "qualifiers": {},
+      "expected": ["folder-stellar-project"]
+    },
+    {
+      "id": "folder-infix-variation",
+      "kind": "folder",
+      "phrase": "打开供应合同目录",
+      "keyword": "供应合同",
+      "qualifiers": {},
+      "expected": ["folder-contract-archive"]
+    },
+    {
+      "id": "folder-recent-project",
+      "kind": "folder",
+      "phrase": "找最近的星河项目文件夹",
+      "keyword": "最近的星河项目",
+      "qualifiers": {"selection_hint": ["recent"]},
+      "expected": ["folder-stellar-project"]
+    },
+    {
+      "id": "folder-child-evidence",
+      "kind": "folder",
+      "phrase": "打开有付款条款的资料夹",
+      "keyword": "付款条款",
+      "qualifiers": {},
+      "expected": ["folder-contract-archive"]
+    },
+    {
+      "id": "folder-photo-backup",
+      "kind": "folder",
+      "phrase": "打开旅行照片备份目录",
+      "keyword": "旅行照片备份",
+      "qualifiers": {},
+      "expected": ["folder-photo-backup"]
+    },
+    {
+      "id": "folder-import-template",
+      "kind": "folder",
+      "phrase": "打开导入模板文件夹",
+      "keyword": "导入模板",
+      "qualifiers": {},
+      "expected": ["folder-import-templates"]
+    },
+    {
+      "id": "folder-open-unknown-topic",
+      "kind": "folder",
+      "phrase": "找量子芯片数据集文件夹",
+      "keyword": "量子芯片数据集",
+      "qualifiers": {},
+      "expected": []
+    },
+    {
+      "id": "folder-open-wrong-domain",
+      "kind": "folder",
+      "phrase": "找张明手机号目录",
+      "keyword": "张明手机号",
+      "qualifiers": {},
+      "expected": []
+    },
+    {
+      "id": "folder-open-structured-unknown",
+      "kind": "folder",
+      "phrase": "找最近的量子芯片数据集文件夹",
+      "keyword": "最近的量子芯片数据集",
+      "qualifiers": {"selection_hint": ["recent"]},
+      "expected": []
+    },
+    {
+      "id": "contact-pinyin-full-name",
+      "kind": "contact",
+      "phrase": "查找zhang ming联系人",
+      "keyword": "zhang ming",
+      "qualifiers": {},
+      "expected": ["contact-zhang-ming"]
+    },
+    {
+      "id": "contact-nickname",
+      "kind": "contact",
+      "phrase": "把文件发给小明",
+      "keyword": "小明",
+      "qualifiers": {},
+      "expected": ["contact-zhang-ming"]
+    },
+    {
+      "id": "contact-normalized-phone",
+      "kind": "contact",
+      "phrase": "查找手机号138-0013-8000",
+      "keyword": "138-0013-8000",
+      "qualifiers": {},
+      "expected": ["contact-zhang-ming"]
+    },
+    {
+      "id": "contact-email-case",
+      "kind": "contact",
+      "phrase": "查找MING.ZHANG@EXAMPLE.COM",
+      "keyword": "MING.ZHANG@EXAMPLE.COM",
+      "qualifiers": {},
+      "expected": ["contact-zhang-ming"]
+    },
+    {
+      "id": "contact-organization-job",
+      "kind": "contact",
+      "phrase": "找华东供应链的采购经理",
+      "keyword": "华东供应链的采购经理",
+      "qualifiers": {},
+      "expected": ["contact-wang-wei"]
+    },
+    {
+      "id": "contact-pinyin-short-name",
+      "kind": "contact",
+      "phrase": "查找lina",
+      "keyword": "lina",
+      "qualifiers": {},
+      "expected": ["contact-li-na"]
+    },
+    {
+      "id": "contact-english-alias",
+      "kind": "contact",
+      "phrase": "查找Alice Chen",
+      "keyword": "Alice Chen",
+      "qualifiers": {},
+      "expected": ["contact-alice-chen"]
+    },
+    {
+      "id": "contact-organization-job-two",
+      "kind": "contact",
+      "phrase": "找星河科技的产品经理",
+      "keyword": "星河科技的产品经理",
+      "qualifiers": {},
+      "expected": ["contact-zhang-ming"]
+    },
+    {
+      "id": "contact-open-unknown-name",
+      "kind": "contact",
+      "phrase": "查找赵子龙",
+      "keyword": "赵子龙",
+      "qualifiers": {},
+      "expected": []
+    },
+    {
+      "id": "contact-open-unknown-phone",
+      "kind": "contact",
+      "phrase": "查找13900000000",
+      "keyword": "13900000000",
+      "qualifiers": {},
+      "expected": []
+    }
+  ]
+}

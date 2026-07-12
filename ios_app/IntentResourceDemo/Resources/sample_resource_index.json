@@ -8,7 +8,8 @@
       "summary": "包含客户报价、折扣、交付周期和付款条款。",
       "tags": ["报价单", "客户", "PDF", "销售"],
       "format": "PDF",
-      "updatedAt": "2026-06-20"
+      "updatedAt": "2026-06-20",
+      "contentTerms": ["折扣", "交付周期", "付款条款"]
     },
     {
       "id": "file-contract-001",
@@ -18,7 +19,8 @@
       "summary": "供应商合作合同与法务修订记录。",
       "tags": ["合同", "供应商", "Word", "法务"],
       "format": "Word",
-      "updatedAt": "2026-06-18"
+      "updatedAt": "2026-06-18",
+      "contentTerms": ["法务修订", "违约责任", "合作条款"]
     },
     {
       "id": "file-report-001",
@@ -28,7 +30,8 @@
       "summary": "项目里程碑、风险、预算和下一步计划。",
       "tags": ["项目", "报告", "PPT", "进度"],
       "format": "PPT",
-      "updatedAt": "2026-06-25"
+      "updatedAt": "2026-06-25",
+      "contentTerms": ["里程碑", "项目风险", "预算"]
     },
     {
       "id": "file-insurance-001",
@@ -38,7 +41,8 @@
       "summary": "医保报销所需材料、发票和个人信息确认表。",
       "tags": ["医保", "材料", "Excel", "清单"],
       "format": "Excel",
-      "updatedAt": "2026-06-10"
+      "updatedAt": "2026-06-10",
+      "contentTerms": ["报销材料", "发票", "个人信息"]
     }
   ],
   "folders": [
@@ -50,7 +54,8 @@
       "summary": "项目计划、会议纪要、进度报告和风险清单。",
       "tags": ["项目资料", "项目", "资料", "会议纪要"],
       "format": null,
-      "updatedAt": "2026-06-24"
+      "updatedAt": "2026-06-24",
+      "childTerms": ["项目计划", "进度报告", "会议纪要", "风险清单"]
     },
     {
       "id": "folder-contract-001",
@@ -60,7 +65,8 @@
       "summary": "客户合同、供应商合同与盖章扫描件。",
       "tags": ["合同", "归档", "供应商", "客户"],
       "format": null,
-      "updatedAt": "2026-06-19"
+      "updatedAt": "2026-06-19",
+      "childTerms": ["付款条款", "续约记录", "盖章扫描件"]
     },
     {
       "id": "folder-photo-backup-001",
@@ -70,7 +76,8 @@
       "summary": "旅行照片、会议照片、截图和精选图片备份。",
       "tags": ["照片备份", "照片", "旅行", "截图"],
       "format": null,
-      "updatedAt": "2026-06-22"
+      "updatedAt": "2026-06-22",
+      "childTerms": ["旅行照片", "会议照片", "截图", "精选图片"]
     },
     {
       "id": "folder-template-001",
@@ -80,7 +87,8 @@
       "summary": "CRM 导入模板、字段说明和示例数据。",
       "tags": ["导入模板", "模板", "CRM", "数据"],
       "format": null,
-      "updatedAt": "2026-06-17"
+      "updatedAt": "2026-06-17",
+      "childTerms": ["CRM 导入模板", "字段说明", "示例数据"]
     }
   ]
 }

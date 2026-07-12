@@ -20,18 +20,18 @@
         "share_target": 4000
       },
       "search_keyword_counts": {
-        "photo": 776,
-        "video": 768,
-        "file": 752,
-        "folder": 792,
-        "contact": 664
+        "photo": 728,
+        "video": 696,
+        "file": 696,
+        "folder": 768,
+        "contact": 624
       },
       "generic_resource_phrase_counts": {
-        "photo": 24,
-        "video": 32,
-        "file": 48,
-        "folder": 8,
-        "contact": 136
+        "photo": 72,
+        "video": 104,
+        "file": 104,
+        "folder": 32,
+        "contact": 176
       },
       "examples": {
         "photo": "把这张照片发给班主任",
@@ -59,18 +59,18 @@
         "share_target": 1000
       },
       "search_keyword_counts": {
-        "photo": 194,
-        "video": 192,
-        "file": 188,
-        "folder": 198,
-        "contact": 166
+        "photo": 182,
+        "video": 174,
+        "file": 174,
+        "folder": 192,
+        "contact": 156
       },
       "generic_resource_phrase_counts": {
-        "photo": 6,
-        "video": 8,
-        "file": 12,
-        "folder": 2,
-        "contact": 34
+        "photo": 18,
+        "video": 26,
+        "file": 26,
+        "folder": 8,
+        "contact": 44
       },
       "examples": {
         "photo": "把这张照片发给刚连上的设备",
@@ -98,18 +98,18 @@
         "share_target": 1000
       },
       "search_keyword_counts": {
-        "photo": 194,
-        "video": 192,
-        "file": 188,
-        "folder": 198,
-        "contact": 166
+        "photo": 182,
+        "video": 174,
+        "file": 174,
+        "folder": 192,
+        "contact": 156
       },
       "generic_resource_phrase_counts": {
-        "photo": 6,
-        "video": 8,
-        "file": 12,
-        "folder": 2,
-        "contact": 34
+        "photo": 18,
+        "video": 26,
+        "file": 26,
+        "folder": 8,
+        "contact": 44
       },
       "examples": {
         "photo": "把这张照片发给小石",
@@ -138,18 +138,18 @@
         "share_target": 4000
       },
       "search_keyword_counts": {
-        "folder": 667,
-        "contact": 628,
-        "file": 265,
-        "photo": 394,
-        "video": 354
+        "folder": 648,
+        "contact": 587,
+        "video": 217,
+        "photo": 314,
+        "file": 343
       },
       "generic_resource_phrase_counts": {
-        "file": 535,
-        "photo": 406,
-        "video": 446,
-        "contact": 172,
-        "folder": 133
+        "file": 457,
+        "photo": 486,
+        "video": 583,
+        "contact": 213,
+        "folder": 152
       },
       "examples": {
         "folder": "帮我把导入模板文件夹传给上次投屏的电视",
@@ -179,18 +179,18 @@
         "share_target": 1000
       },
       "search_keyword_counts": {
-        "contact": 147,
-        "video": 94,
-        "folder": 170,
-        "photo": 106,
-        "file": 67
+        "contact": 133,
+        "folder": 160,
+        "file": 86,
+        "photo": 99,
+        "video": 54
       },
       "generic_resource_phrase_counts": {
-        "video": 106,
-        "photo": 94,
-        "contact": 53,
-        "file": 133,
-        "folder": 30
+        "video": 146,
+        "photo": 101,
+        "contact": 67,
+        "file": 114,
+        "folder": 40
       },
       "examples": {
         "unknown": "给小明打电话",
@@ -220,18 +220,18 @@
         "share_target": 1000
       },
       "search_keyword_counts": {
-        "contact": 159,
-        "video": 96,
-        "file": 75,
-        "folder": 176,
-        "photo": 104
+        "photo": 104,
+        "contact": 152,
+        "folder": 173,
+        "video": 54,
+        "file": 94
       },
       "generic_resource_phrase_counts": {
-        "file": 125,
+        "contact": 48,
+        "file": 106,
+        "video": 146,
         "photo": 96,
-        "contact": 41,
-        "video": 104,
-        "folder": 24
+        "folder": 27
       },
       "examples": {
         "unknown": "先别把旅行视频发给唐老师",
@@ -258,18 +258,18 @@
       "share_target": 12000
     },
     "search_keyword_counts": {
-      "photo": 1768,
-      "video": 1696,
-      "file": 1535,
-      "folder": 2201,
-      "contact": 1930
+      "photo": 1609,
+      "video": 1369,
+      "file": 1567,
+      "folder": 2133,
+      "contact": 1808
     },
     "generic_resource_phrase_counts": {
-      "photo": 632,
-      "video": 704,
-      "file": 865,
-      "folder": 199,
-      "contact": 470
+      "photo": 791,
+      "video": 1031,
+      "file": 833,
+      "folder": 267,
+      "contact": 592
     }
   },
   "normalized_schema": {

@@ -19,6 +19,14 @@ try {
     & $VenvPython "scripts\validate_ios_project.py"
 
     Write-Host ""
+    Write-Host "== Resource query normalization =="
+    & $VenvPython "scripts\validate_resource_query_normalization.py"
+
+    Write-Host ""
+    Write-Host "== Non-photo retrieval ranking =="
+    & $VenvPython "scripts\eval_non_photo_retrieval.py"
+
+    Write-Host ""
     Write-Host "== Semantic indexing performance policy =="
     & $VenvPython "scripts\validate_semantic_search_performance.py"
 
@@ -41,6 +49,11 @@ try {
     Write-Host ""
     Write-Host "== Multiclass quality and shortlist recall =="
     & $VenvPython "scripts\validate_chinese_clip_multiclass_quality.py"
+
+    Write-Host ""
+    Write-Host "== Video poster prompt proxy =="
+    & $VenvPython "scripts\eval_video_poster_prompt_proxy.py" `
+        --output "build\diagnostics\video_poster_prompt_proxy.json"
 
     Write-Host ""
     Write-Host "== Cat precision stress set =="

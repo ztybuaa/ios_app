@@ -56,51 +56,24 @@ RESOURCE_TYPES = {
     "contact": "联系人/联系方式",
 }
 
-RESOURCE_TERMS = {
+RESOURCE_SUFFIXES = {
     "photo": [
         "图片",
         "照片",
         "相片",
-        "截图",
-        "截屏",
-        "风景照",
-        "自拍",
-        "动图",
-        "GIF动图",
-        "图",
         "相册",
     ],
     "video": [
         "视频",
         "录像",
-        "录屏",
         "短视频",
         "短片",
         "影片",
-        "MOV文件",
-        "MP4文件",
-        "MOV视频",
-        "MP4视频",
-        "MP4",
-        "MOV",
+        "文件",
     ],
     "file": [
         "文件",
         "文档",
-        "表格",
-        "合同",
-        "报告",
-        "PPT文件",
-        "Word文件",
-        "Excel表格",
-        "PDF文件",
-        "PDF文档",
-        "Word文档",
-        "PPT",
-        "PDF",
-        "Word",
-        "Excel",
-        "压缩包",
     ],
     "folder": [
         "文件夹",
@@ -121,7 +94,10 @@ RESOURCE_TERMS = {
         "电话",
         "微信号",
         "邮箱地址",
+        "邮箱",
         "办公地址",
+        "号码",
+        "微信",
         "地址",
         "二维码",
     ],
@@ -174,6 +150,8 @@ TIME_TERMS = [
     "去年",
     "今年",
     "明天",
+    "本周",
+    "本月",
 ]
 
 FORMAT_TERMS = [
@@ -188,6 +166,21 @@ FORMAT_TERMS = [
     "MOV",
     "VCF",
     "vCard",
+    "AVI",
+    "MKV",
+    "CSV",
+    "ZIP",
+    "RAR",
+    "7z",
+    "TXT",
+    "JSON",
+    "XML",
+    "Markdown",
+    "SQL",
+    "IPA",
+    "APK",
+    "DMG",
+    "EXE",
 ]
 
 GENERIC_PREFIXES = [
@@ -264,6 +257,43 @@ def remove_terms(text, terms):
     return result
 
 
+def format_pattern(term):
+    return rf"(?<![A-Za-z0-9]){re.escape(term)}(?![A-Za-z0-9])"
+
+
+def remove_format_terms(text, terms):
+    result = text
+    for term in sorted(terms, key=len, reverse=True):
+        result = re.sub(format_pattern(term), "", result, flags=re.IGNORECASE)
+    return result
+
+
+def strip_resource_suffixes(text, suffixes):
+    result = text
+    changed = True
+    while changed:
+        changed = False
+        for suffix in sorted(suffixes, key=len, reverse=True):
+            if result.endswith(suffix):
+                result = result[: -len(suffix)]
+                changed = True
+                break
+    return result
+
+
+def strip_structured_modifiers(text):
+    result = remove_terms(text, TIME_TERMS)
+    result = result.replace("格式", "")
+    result = re.sub(
+        r"^(?:的)?(?:刚刚|刚)?(?:才)?(?:新)?"
+        r"(?:拍|保存|下载|收到|创建|整理|录制|录|拍摄|添加|新增|记录|获取|存|挪动|剪辑)"
+        r"(?:的|好)",
+        "",
+        result,
+    )
+    return result
+
+
 def strip_generic_markers(text):
     result = text
     changed = True
@@ -295,7 +325,7 @@ def extract_selection_hints(text):
 def extract_qualifiers(text):
     return {
         "time": [term for term in TIME_TERMS if term in text],
-        "format": [term for term in FORMAT_TERMS if term in text],
+        "format": [term for term in FORMAT_TERMS if re.search(format_pattern(term), text, re.IGNORECASE)],
         "selection_hint": extract_selection_hints(text),
     }
 
@@ -304,9 +334,11 @@ def normalize_search_keyword(intent, resource_phrase):
     if intent == "unknown":
         return None
 
-    terms = RESOURCE_TERMS.get(intent, [])
-    keyword = remove_terms(resource_phrase, terms)
+    keyword = resource_phrase
+    keyword = remove_format_terms(keyword, FORMAT_TERMS)
+    keyword = strip_resource_suffixes(keyword, RESOURCE_SUFFIXES.get(intent, []))
     keyword = strip_generic_markers(keyword)
+    keyword = strip_structured_modifiers(keyword)
     keyword = compact_text(keyword)
 
     # A blank keyword means the phrase is generic selection/context only, such as

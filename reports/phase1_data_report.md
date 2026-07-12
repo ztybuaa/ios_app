@@ -11,12 +11,12 @@
 
 | file                                           | suite         | split           | rows | intent_counts                                                        | keyword_rows                                            | generic_rows                                            |
 | ---------------------------------------------- | ------------- | --------------- | ---- | -------------------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------- |
-| train_intent_slots(1).json                     | positive_only | train           | 4000 | contact:800, file:800, folder:800, photo:800, video:800              | contact:664, file:752, folder:792, photo:776, video:768 | contact:136, file:48, folder:8, photo:24, video:32      |
-| valid_intent_slots(1).json                     | positive_only | valid           | 1000 | contact:200, file:200, folder:200, photo:200, video:200              | contact:166, file:188, folder:198, photo:194, video:192 | contact:34, file:12, folder:2, photo:6, video:8         |
-| cold_start_test_intent_slots(1).json           | positive_only | cold_start_test | 1000 | contact:200, file:200, folder:200, photo:200, video:200              | contact:166, file:188, folder:198, photo:194, video:192 | contact:34, file:12, folder:2, photo:6, video:8         |
-| train_intent_slots_with_unknown.json           | with_unknown  | train           | 4800 | contact:800, file:800, folder:800, photo:800, unknown:800, video:800 | contact:628, file:265, folder:667, photo:394, video:354 | contact:172, file:535, folder:133, photo:406, video:446 |
-| valid_intent_slots_with_unknown(1).json        | with_unknown  | valid           | 1200 | contact:200, file:200, folder:200, photo:200, unknown:200, video:200 | contact:147, file:67, folder:170, photo:106, video:94   | contact:53, file:133, folder:30, photo:94, video:106    |
-| cold_start_test_intent_slots_with_unknown.json | with_unknown  | cold_start_test | 1200 | contact:200, file:200, folder:200, photo:200, unknown:200, video:200 | contact:159, file:75, folder:176, photo:104, video:96   | contact:41, file:125, folder:24, photo:96, video:104    |
+| train_intent_slots(1).json                     | positive_only | train           | 4000 | contact:800, file:800, folder:800, photo:800, video:800              | contact:624, file:696, folder:768, photo:728, video:696 | contact:176, file:104, folder:32, photo:72, video:104   |
+| valid_intent_slots(1).json                     | positive_only | valid           | 1000 | contact:200, file:200, folder:200, photo:200, video:200              | contact:156, file:174, folder:192, photo:182, video:174 | contact:44, file:26, folder:8, photo:18, video:26       |
+| cold_start_test_intent_slots(1).json           | positive_only | cold_start_test | 1000 | contact:200, file:200, folder:200, photo:200, video:200              | contact:156, file:174, folder:192, photo:182, video:174 | contact:44, file:26, folder:8, photo:18, video:26       |
+| train_intent_slots_with_unknown.json           | with_unknown  | train           | 4800 | contact:800, file:800, folder:800, photo:800, unknown:800, video:800 | contact:587, file:343, folder:648, photo:314, video:217 | contact:213, file:457, folder:152, photo:486, video:583 |
+| valid_intent_slots_with_unknown(1).json        | with_unknown  | valid           | 1200 | contact:200, file:200, folder:200, photo:200, unknown:200, video:200 | contact:133, file:86, folder:160, photo:99, video:54    | contact:67, file:114, folder:40, photo:101, video:146   |
+| cold_start_test_intent_slots_with_unknown.json | with_unknown  | cold_start_test | 1200 | contact:200, file:200, folder:200, photo:200, unknown:200, video:200 | contact:152, file:94, folder:173, photo:104, video:54   | contact:48, file:106, folder:27, photo:96, video:146    |
 
 ## 总体统计
 
@@ -36,18 +36,18 @@
     "share_target": 12000
   },
   "search_keyword_counts": {
-    "photo": 1768,
-    "video": 1696,
-    "file": 1535,
-    "folder": 2201,
-    "contact": 1930
+    "photo": 1609,
+    "video": 1369,
+    "file": 1567,
+    "folder": 2133,
+    "contact": 1808
   },
   "generic_resource_phrase_counts": {
-    "photo": 632,
-    "video": 704,
-    "file": 865,
-    "folder": 199,
-    "contact": 470
+    "photo": 791,
+    "video": 1031,
+    "file": 833,
+    "folder": 267,
+    "contact": 592
   }
 }
 ```

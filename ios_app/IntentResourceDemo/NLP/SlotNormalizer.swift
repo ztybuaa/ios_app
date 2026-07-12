@@ -39,12 +39,12 @@ enum SlotNormalizer {
         "contact": "联系人/联系方式"
     ]
 
-    private static let resourceTerms: [String: [String]] = [
-        "photo": ["GIF动图", "风景照", "图片", "照片", "相片", "截图", "截屏", "自拍", "动图", "相册", "图"],
-        "video": ["MOV文件", "MP4文件", "MOV视频", "MP4视频", "短视频", "视频", "录像", "录屏", "短片", "影片", "MP4", "MOV"],
-        "file": ["Excel表格", "Word文件", "PDF文件", "PDF文档", "Word文档", "PPT文件", "压缩包", "文件", "文档", "表格", "合同", "报告", "PPT", "PDF", "Word", "Excel"],
+    private static let resourceSuffixes: [String: [String]] = [
+        "photo": ["图片", "照片", "相片", "相册"],
+        "video": ["短视频", "视频", "录像", "短片", "影片", "文件"],
+        "file": ["文件", "文档"],
         "folder": ["文件夹", "资料夹", "目录"],
-        "contact": ["联系人信息", "联系方式", "电子名片", "VCF名片", "vCard联系人", "联系人", "通讯录", "手机号", "电话号码", "微信号", "邮箱地址", "办公地址", "二维码", "电话", "地址", "名片"]
+        "contact": ["联系人信息", "联系方式", "电子名片", "VCF名片", "vCard联系人", "联系人", "通讯录", "手机号", "电话号码", "微信号", "邮箱地址", "办公地址", "二维码", "电话", "邮箱", "号码", "微信", "地址", "名片"]
     ]
 
     private static let genericPrefixes = [
@@ -52,8 +52,12 @@ enum SlotNormalizer {
         "这些", "那些", "部分", "多个", "几个", "全部", "所有", "当前"
     ]
 
-    private static let timeTerms = ["今天", "昨天", "前天", "上周", "上个月", "最近", "刚才", "最新", "近期", "去年", "今年", "明天"]
-    private static let formatTerms = ["PDF", "Word", "Excel", "PPT", "PNG", "JPG", "GIF", "MP4", "MOV", "VCF", "vCard"]
+    private static let timeTerms = ["今天", "昨天", "前天", "上周", "上个月", "最近", "刚才", "最新", "近期", "去年", "今年", "明天", "本周", "本月"]
+    private static let formatTerms = [
+        "Markdown", "Excel", "Word", "vCard", "PDF", "PPT", "PNG", "JPG", "GIF", "MP4", "MOV",
+        "VCF", "AVI", "MKV", "CSV", "ZIP", "RAR", "7z", "TXT", "JSON", "XML", "SQL", "IPA",
+        "APK", "DMG", "EXE"
+    ]
 
     static func normalize(intent: String, rawSlots: [String: String]) -> NormalizedSlots? {
         guard intent != "unknown",
@@ -76,8 +80,22 @@ enum SlotNormalizer {
         guard intent != "unknown" else { return nil }
 
         var keyword = resourcePhrase
-        for term in (resourceTerms[intent] ?? []).sorted(by: { $0.count > $1.count }) {
-            keyword = keyword.replacingOccurrences(of: term, with: "")
+        for format in formatTerms.sorted(by: { $0.count > $1.count }) {
+            keyword = keyword.replacingOccurrences(
+                of: formatPattern(format),
+                with: "",
+                options: [.regularExpression, .caseInsensitive]
+            )
+        }
+
+        var removedSuffix = true
+        while removedSuffix {
+            removedSuffix = false
+            for suffix in (resourceSuffixes[intent] ?? []).sorted(by: { $0.count > $1.count }) where keyword.hasSuffix(suffix) {
+                keyword.removeLast(suffix.count)
+                removedSuffix = true
+                break
+            }
         }
 
         var changed = true
@@ -92,6 +110,16 @@ enum SlotNormalizer {
                 changed = true
             }
         }
+
+        for timeTerm in timeTerms.sorted(by: { $0.count > $1.count }) {
+            keyword = keyword.replacingOccurrences(of: timeTerm, with: "")
+        }
+        keyword = keyword.replacingOccurrences(of: "格式", with: "")
+        keyword = keyword.replacingOccurrences(
+            of: "^(?:的)?(?:刚刚|刚)?(?:才)?(?:新)?(?:拍|保存|下载|收到|创建|整理|录制|录|拍摄|添加|新增|记录|获取|存|挪动|剪辑)(?:的|好)",
+            with: "",
+            options: .regularExpression
+        )
 
         keyword = keyword
             .replacingOccurrences(of: "\\s+", with: "", options: .regularExpression)
@@ -114,8 +142,14 @@ enum SlotNormalizer {
 
         return Qualifiers(
             time: timeTerms.filter(text.contains),
-            format: formatTerms.filter(text.contains),
+            format: formatTerms.filter {
+                text.range(of: formatPattern($0), options: [.regularExpression, .caseInsensitive]) != nil
+            },
             selectionHint: selectionHints
         )
+    }
+
+    private static func formatPattern(_ term: String) -> String {
+        "(?<![A-Za-z0-9])\(NSRegularExpression.escapedPattern(for: term))(?![A-Za-z0-9])"
     }
 }

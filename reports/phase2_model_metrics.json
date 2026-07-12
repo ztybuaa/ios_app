@@ -17,9 +17,9 @@
     "model_path": "models\\tiny_intent_slot_model.json",
     "model_size_bytes": 1138480,
     "model_size_mb": 1.085739,
-    "train_time_ms": 85974.7865,
-    "load_time_ms": 125.4953,
-    "peak_load_memory_kb": 14223.65
+    "train_time_ms": 98238.5016,
+    "load_time_ms": 126.5632,
+    "peak_load_memory_kb": 14223.58
   },
   "evaluation": {
     "positive_train": {
@@ -30,9 +30,9 @@
       "complete_output_exact": 0.99325,
       "share_content_exact": 0.994,
       "share_target_exact": 0.99925,
-      "search_keyword_exact": 0.9975,
-      "latency_ms_avg": 0.964319,
-      "latency_ms_p95": 1.3231,
+      "search_keyword_exact": 0.9965,
+      "latency_ms_avg": 1.19721,
+      "latency_ms_p95": 1.8914,
       "by_intent": {
         "contact": {
           "rows": 800,
@@ -72,7 +72,7 @@
           "complete_output_exact": 0.97875,
           "share_content_exact": 0.98125,
           "share_target_exact": 0.9975,
-          "search_keyword_exact": 0.99
+          "search_keyword_exact": 0.985
         },
         "video": {
           "rows": 800,
@@ -95,8 +95,8 @@
       "share_content_exact": 0.992,
       "share_target_exact": 0.994,
       "search_keyword_exact": 0.992,
-      "latency_ms_avg": 1.021658,
-      "latency_ms_p95": 1.4308,
+      "latency_ms_avg": 1.12511,
+      "latency_ms_p95": 1.7561,
       "by_intent": {
         "contact": {
           "rows": 200,
@@ -116,7 +116,7 @@
           "complete_output_exact": 0.97,
           "share_content_exact": 0.995,
           "share_target_exact": 0.975,
-          "search_keyword_exact": 0.975
+          "search_keyword_exact": 0.98
         },
         "folder": {
           "rows": 200,
@@ -136,7 +136,7 @@
           "complete_output_exact": 0.975,
           "share_content_exact": 0.975,
           "share_target_exact": 1.0,
-          "search_keyword_exact": 0.985
+          "search_keyword_exact": 0.98
         },
         "video": {
           "rows": 200,
@@ -158,9 +158,9 @@
       "complete_output_exact": 0.965,
       "share_content_exact": 0.993,
       "share_target_exact": 0.971,
-      "search_keyword_exact": 0.975,
-      "latency_ms_avg": 1.020151,
-      "latency_ms_p95": 1.3926,
+      "search_keyword_exact": 0.976,
+      "latency_ms_avg": 1.09361,
+      "latency_ms_p95": 1.709,
       "by_intent": {
         "contact": {
           "rows": 200,
@@ -180,7 +180,7 @@
           "complete_output_exact": 0.965,
           "share_content_exact": 0.995,
           "share_target_exact": 0.965,
-          "search_keyword_exact": 0.97
+          "search_keyword_exact": 0.975
         },
         "folder": {
           "rows": 200,
@@ -200,7 +200,7 @@
           "complete_output_exact": 0.95,
           "share_content_exact": 0.985,
           "share_target_exact": 0.97,
-          "search_keyword_exact": 0.96
+          "search_keyword_exact": 0.955
         },
         "video": {
           "rows": 200,
@@ -210,7 +210,7 @@
           "complete_output_exact": 0.95,
           "share_content_exact": 0.99,
           "share_target_exact": 0.955,
-          "search_keyword_exact": 0.965
+          "search_keyword_exact": 0.97
         }
       }
     },
@@ -222,9 +222,9 @@
       "complete_output_exact": 0.986458,
       "share_content_exact": 0.9875,
       "share_target_exact": 0.996,
-      "search_keyword_exact": 0.9905,
-      "latency_ms_avg": 0.779142,
-      "latency_ms_p95": 1.099,
+      "search_keyword_exact": 0.992,
+      "latency_ms_avg": 0.887683,
+      "latency_ms_p95": 1.3626,
       "by_intent": {
         "contact": {
           "rows": 800,
@@ -244,7 +244,7 @@
           "complete_output_exact": 0.98625,
           "share_content_exact": 0.99,
           "share_target_exact": 0.99625,
-          "search_keyword_exact": 0.99125
+          "search_keyword_exact": 0.99625
         },
         "folder": {
           "rows": 800,
@@ -284,7 +284,7 @@
           "complete_output_exact": 0.98375,
           "share_content_exact": 0.99,
           "share_target_exact": 0.99375,
-          "search_keyword_exact": 0.995
+          "search_keyword_exact": 0.9975
         }
       }
     },
@@ -296,9 +296,9 @@
       "complete_output_exact": 0.94,
       "share_content_exact": 0.971,
       "share_target_exact": 0.974,
-      "search_keyword_exact": 0.97,
-      "latency_ms_avg": 0.757568,
-      "latency_ms_p95": 1.0386,
+      "search_keyword_exact": 0.973,
+      "latency_ms_avg": 0.842232,
+      "latency_ms_p95": 1.2628,
       "by_intent": {
         "contact": {
           "rows": 200,
@@ -318,7 +318,7 @@
           "complete_output_exact": 0.935,
           "share_content_exact": 0.97,
           "share_target_exact": 0.97,
-          "search_keyword_exact": 0.97
+          "search_keyword_exact": 0.985
         },
         "folder": {
           "rows": 200,
@@ -328,7 +328,7 @@
           "complete_output_exact": 0.945,
           "share_content_exact": 0.98,
           "share_target_exact": 0.975,
-          "search_keyword_exact": 0.985
+          "search_keyword_exact": 0.99
         },
         "photo": {
           "rows": 200,
@@ -338,7 +338,7 @@
           "complete_output_exact": 0.9,
           "share_content_exact": 0.95,
           "share_target_exact": 0.96,
-          "search_keyword_exact": 0.955
+          "search_keyword_exact": 0.94
         },
         "unknown": {
           "rows": 200,
@@ -358,7 +358,7 @@
           "complete_output_exact": 0.94,
           "share_content_exact": 0.985,
           "share_target_exact": 0.975,
-          "search_keyword_exact": 0.975
+          "search_keyword_exact": 0.985
         }
       }
     },
@@ -370,9 +370,9 @@
       "complete_output_exact": 0.915833,
       "share_content_exact": 0.928,
       "share_target_exact": 0.974,
-      "search_keyword_exact": 0.94,
-      "latency_ms_avg": 0.785621,
-      "latency_ms_p95": 1.1023,
+      "search_keyword_exact": 0.938,
+      "latency_ms_avg": 0.9127,
+      "latency_ms_p95": 1.4247,
       "by_intent": {
         "contact": {
           "rows": 200,
@@ -392,7 +392,7 @@
           "complete_output_exact": 0.91,
           "share_content_exact": 0.945,
           "share_target_exact": 0.955,
-          "search_keyword_exact": 0.955
+          "search_keyword_exact": 0.96
         },
         "folder": {
           "rows": 200,
@@ -402,7 +402,7 @@
           "complete_output_exact": 0.945,
           "share_content_exact": 0.965,
           "share_target_exact": 0.985,
-          "search_keyword_exact": 0.96
+          "search_keyword_exact": 0.97
         },
         "photo": {
           "rows": 200,
@@ -412,7 +412,7 @@
           "complete_output_exact": 0.84,
           "share_content_exact": 0.875,
           "share_target_exact": 0.975,
-          "search_keyword_exact": 0.915
+          "search_keyword_exact": 0.88
         },
         "unknown": {
           "rows": 200,
@@ -432,7 +432,7 @@
           "complete_output_exact": 0.915,
           "share_content_exact": 0.93,
           "share_target_exact": 0.985,
-          "search_keyword_exact": 0.94
+          "search_keyword_exact": 0.95
         }
       }
     }

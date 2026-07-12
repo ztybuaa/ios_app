@@ -16,20 +16,43 @@ final class MediaResourceModule {
         let fetchOptions = PHFetchOptions()
         fetchOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
         fetchOptions.fetchLimit = mediaFetchLimit(kind: kind, plan: plan, resultLimit: limit)
-        fetchOptions.predicate = NSPredicate(
+        var predicates = [NSPredicate(
             format: "mediaType == %d",
             kind == .video ? PHAssetMediaType.video.rawValue : PHAssetMediaType.image.rawValue
-        )
+        )]
+        if let interval = plan.creationDateInterval {
+            predicates.append(NSPredicate(
+                format: "creationDate >= %@ AND creationDate < %@",
+                interval.start as NSDate,
+                interval.end as NSDate
+            ))
+        }
+        fetchOptions.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
 
         let assets = PHAsset.fetchAssets(with: fetchOptions)
-        let assetList = (0..<assets.count).map { assets.object(at: $0) }
+        let fetchedAssets = (0..<assets.count).map { assets.object(at: $0) }
+        let assetList = fetchedAssets.filter { plan.matchesMetadata($0, kind: kind) }
         if kind == .photo,
-           plan.hasSearchTerm {
+           plan.hasSemanticSubject {
             let semanticOutcome = try await SemanticImageSearchService.shared.search(
                 assets: assetList,
                 kind: kind,
                 slots: slots,
                 limit: limit
+            )
+            return MediaSearchOutcome(
+                candidates: semanticOutcome.candidates,
+                semanticMetrics: semanticOutcome.metrics
+            )
+        }
+        if kind == .video,
+           let semanticSubject = plan.semanticSubject {
+            let semanticOutcome = try await SemanticImageSearchService.shared.search(
+                assets: assetList,
+                kind: kind,
+                slots: slots,
+                limit: limit,
+                mode: .videoPoster(subject: semanticSubject)
             )
             return MediaSearchOutcome(
                 candidates: semanticOutcome.candidates,
@@ -74,14 +97,20 @@ final class MediaResourceModule {
     }
 
     private func scanLimit(for plan: MediaQueryPlan, resultLimit: Int) -> Int {
-        if !plan.hasSearchTerm {
+        if !plan.hasSemanticSubject && !plan.hasStructuredMetadataFilter {
             return resultLimit
+        }
+        if !plan.hasSemanticSubject {
+            return max(resultLimit, 500)
         }
         return plan.needsFineVisualSearch ? max(resultLimit, 500) : max(resultLimit, 240)
     }
 
     private func mediaFetchLimit(kind: CandidateKind, plan: MediaQueryPlan, resultLimit: Int) -> Int {
-        if kind == .photo && plan.hasSearchTerm {
+        if plan.hasPostFetchMetadataFilter {
+            return 2_500
+        }
+        if kind == .photo && plan.hasSemanticSubject {
             if plan.wantsRecent {
                 return 600
             }
@@ -94,7 +123,7 @@ final class MediaResourceModule {
         if score > 0 {
             return true
         }
-        return !plan.hasSearchTerm && plan.wantsRecent
+        return !plan.hasSemanticSubject
     }
 
     private func score(asset: PHAsset, vision: AssetVisionResult, plan: MediaQueryPlan) -> Double {
@@ -136,7 +165,7 @@ final class MediaResourceModule {
         let textScore = textScore(aliases: plan.semanticAliases, textLines: vision.textLines)
         score += labelScore + textScore
 
-        if plan.hasSearchTerm && score == 0 {
+        if plan.hasSemanticSubject && score == 0 {
             return 0
         }
         if plan.wantsRecent {
@@ -144,6 +173,11 @@ final class MediaResourceModule {
         }
         if plan.wantsToday, Calendar.current.isDateInToday(asset.creationDate ?? .distantPast) {
             score += 1.0
+        }
+
+        if !plan.hasSemanticSubject, let creationDate = asset.creationDate {
+            let ageDays = max(0, Date().timeIntervalSince(creationDate) / 86_400)
+            score += 1.0 / (1.0 + ageDays / 7.0)
         }
 
         return score
@@ -485,7 +519,7 @@ private func expandVisionIdentifier(_ identifier: String) -> [String] {
 
 private struct MediaQueryPlan {
     let rawText: String
-    let hasSearchTerm: Bool
+    let semanticSubject: String?
     let wantsScreenshot: Bool
     let wantsGame: Bool
     let wantsHuman: Bool
@@ -493,6 +527,10 @@ private struct MediaQueryPlan {
     let wantsToday: Bool
     let animalQuery: AnimalQuery?
     let semanticAliases: [String]
+    let creationDateInterval: DateInterval?
+    let requestedFormats: Set<String>
+    let requestedOrientation: MediaOrientation?
+    let requestedDuration: ClosedRange<Double>?
 
     init(slots: NormalizedSlots) {
         let text = [
@@ -502,22 +540,37 @@ private struct MediaQueryPlan {
         ].joined(separator: " ")
         let lowerText = text.lowercased()
         rawText = text
-        hasSearchTerm = !(slots.searchKeyword?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) ||
-            !slots.resourcePhrase.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        semanticSubject = Self.semanticSubject(from: slots.searchKeyword)
         wantsScreenshot = ["截图", "截屏"].contains(where: { text.contains($0) }) ||
             ["screen", "screenshot"].contains(where: { lowerText.contains($0) })
         wantsGame = ["游戏", "手游"].contains(where: { text.contains($0) }) ||
             ["game", "gameplay"].contains(where: { lowerText.contains($0) })
-        wantsHuman = ["人", "人物", "人像", "自拍", "合影"].contains(where: { text.contains($0) }) ||
+        wantsHuman = ["人物", "人像", "自拍", "合影", "美女", "男生", "女生"].contains(where: { text.contains($0) }) ||
             ["person", "people", "face"].contains(where: { lowerText.contains($0) })
         wantsRecent = slots.qualifiers.selectionHint.contains("recent")
         wantsToday = slots.qualifiers.time.contains("今天")
         animalQuery = Self.animalQuery(for: text)
         semanticAliases = Self.semanticAliases(for: text, keyword: slots.searchKeyword)
+        creationDateInterval = Self.dateInterval(for: slots.qualifiers.time)
+        requestedFormats = Set(slots.qualifiers.format.map { $0.lowercased() })
+        requestedOrientation = Self.orientation(for: text)
+        requestedDuration = Self.durationRange(for: text)
+    }
+
+    var hasSemanticSubject: Bool {
+        semanticSubject != nil
+    }
+
+    var hasStructuredMetadataFilter: Bool {
+        creationDateInterval != nil || !requestedFormats.isEmpty || requestedOrientation != nil || requestedDuration != nil
+    }
+
+    var hasPostFetchMetadataFilter: Bool {
+        !requestedFormats.isEmpty || requestedOrientation != nil || requestedDuration != nil
     }
 
     var needsVision: Bool {
-        needsAnimalDetection || needsHumanDetection || needsTextRecognition || needsClassification
+        hasSemanticSubject && (needsAnimalDetection || needsHumanDetection || needsTextRecognition || needsClassification)
     }
 
     var needsFineVisualSearch: Bool {
@@ -538,6 +591,123 @@ private struct MediaQueryPlan {
 
     var needsClassification: Bool {
         wantsGame || (!semanticAliases.isEmpty && animalQuery == nil && !wantsHuman)
+    }
+
+    func matchesMetadata(_ asset: PHAsset, kind: CandidateKind) -> Bool {
+        if let requestedOrientation {
+            switch requestedOrientation {
+            case .landscape where asset.pixelWidth < asset.pixelHeight:
+                return false
+            case .portrait where asset.pixelHeight <= asset.pixelWidth:
+                return false
+            case .square:
+                let shorter = max(1, min(asset.pixelWidth, asset.pixelHeight))
+                let longer = max(asset.pixelWidth, asset.pixelHeight)
+                if Double(longer) / Double(shorter) > 1.12 { return false }
+            default:
+                break
+            }
+        }
+        if kind == .video, let requestedDuration, !requestedDuration.contains(asset.duration) {
+            return false
+        }
+        if !requestedFormats.isEmpty {
+            let extensions = Set(PHAssetResource.assetResources(for: asset).compactMap {
+                $0.originalFilename.split(separator: ".").last.map { String($0).lowercased() }
+            })
+            let aliases = requestedFormats.reduce(into: Set<String>()) { result, format in
+                result.formUnion(Self.formatAliases(format))
+            }
+            if extensions.isDisjoint(with: aliases) { return false }
+        }
+        return true
+    }
+
+    private static func semanticSubject(from keyword: String?) -> String? {
+        guard var subject = keyword?.trimmingCharacters(in: .whitespacesAndNewlines), !subject.isEmpty else {
+            return nil
+        }
+        for term in ["横屏", "竖屏", "方形", "高清", "超清", "4K", "1080P", "720P"] {
+            subject = subject.replacingOccurrences(of: term, with: "", options: .caseInsensitive)
+        }
+        subject = subject.replacingOccurrences(
+            of: "[0-9一二两三四五六七八九十百]+(?:秒|分钟)",
+            with: "",
+            options: .regularExpression
+        )
+        subject = subject.trimmingCharacters(in: CharacterSet(charactersIn: " 的。、，,.;；：:"))
+        return subject.isEmpty ? nil : subject
+    }
+
+    private static func orientation(for text: String) -> MediaOrientation? {
+        if text.contains("横屏") { return .landscape }
+        if text.contains("竖屏") { return .portrait }
+        if text.contains("方形") || text.contains("正方形") { return .square }
+        return nil
+    }
+
+    private static func durationRange(for text: String) -> ClosedRange<Double>? {
+        let patterns: [(String, Double)] = [("[0-9]+\\s*分钟", 60), ("[0-9]+\\s*秒", 1)]
+        for (pattern, multiplier) in patterns {
+            guard let range = text.range(of: pattern, options: .regularExpression) else { continue }
+            let digits = text[range].filter(\.isNumber)
+            guard let value = Double(digits) else { continue }
+            let seconds = value * multiplier
+            let tolerance = max(3, seconds * 0.2)
+            return max(0, seconds - tolerance)...(seconds + tolerance)
+        }
+        let namedDurations = ["一分钟": 60.0, "两分钟": 120.0, "三分钟": 180.0, "十秒": 10.0, "三十秒": 30.0]
+        if let seconds = namedDurations.first(where: { text.contains($0.key) })?.value {
+            let tolerance = max(3, seconds * 0.2)
+            return max(0, seconds - tolerance)...(seconds + tolerance)
+        }
+        return nil
+    }
+
+    private static func dateInterval(for terms: [String], now: Date = Date(), calendar: Calendar = .current) -> DateInterval? {
+        let startOfToday = calendar.startOfDay(for: now)
+        if terms.contains("今天"), let end = calendar.date(byAdding: .day, value: 1, to: startOfToday) {
+            return DateInterval(start: startOfToday, end: end)
+        }
+        if terms.contains("昨天") || terms.contains("前天") {
+            let days = terms.contains("前天") ? -2 : -1
+            if let start = calendar.date(byAdding: .day, value: days, to: startOfToday),
+               let end = calendar.date(byAdding: .day, value: 1, to: start) {
+                return DateInterval(start: start, end: end)
+            }
+        }
+        if terms.contains("明天"),
+           let start = calendar.date(byAdding: .day, value: 1, to: startOfToday),
+           let end = calendar.date(byAdding: .day, value: 1, to: start) {
+            return DateInterval(start: start, end: end)
+        }
+        if terms.contains("上周"), let thisWeek = calendar.dateInterval(of: .weekOfYear, for: now),
+           let start = calendar.date(byAdding: .weekOfYear, value: -1, to: thisWeek.start) {
+            return DateInterval(start: start, end: thisWeek.start)
+        }
+        if terms.contains("本周") { return calendar.dateInterval(of: .weekOfYear, for: now) }
+        if terms.contains("上个月"), let thisMonth = calendar.dateInterval(of: .month, for: now),
+           let start = calendar.date(byAdding: .month, value: -1, to: thisMonth.start) {
+            return DateInterval(start: start, end: thisMonth.start)
+        }
+        if terms.contains("本月") { return calendar.dateInterval(of: .month, for: now) }
+        if terms.contains("去年"), let thisYear = calendar.dateInterval(of: .year, for: now),
+           let start = calendar.date(byAdding: .year, value: -1, to: thisYear.start) {
+            return DateInterval(start: start, end: thisYear.start)
+        }
+        if terms.contains("今年") { return calendar.dateInterval(of: .year, for: now) }
+        return nil
+    }
+
+    private static func formatAliases(_ format: String) -> Set<String> {
+        switch format.lowercased() {
+        case "mp4": return ["mp4", "m4v"]
+        case "mov": return ["mov", "qt"]
+        case "jpg": return ["jpg", "jpeg"]
+        case "gif": return ["gif"]
+        case "png": return ["png"]
+        default: return [format.lowercased()]
+        }
     }
 
     private static func animalQuery(for text: String) -> AnimalQuery? {
@@ -586,6 +756,12 @@ private struct MediaQueryPlan {
         }
         return Array(Set(aliases))
     }
+}
+
+private enum MediaOrientation {
+    case landscape
+    case portrait
+    case square
 }
 
 private struct AssetVisionResult {

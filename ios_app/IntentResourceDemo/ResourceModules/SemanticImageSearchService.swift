@@ -5,6 +5,11 @@ import Foundation
 import Photos
 import UIKit
 
+enum SemanticSearchMode {
+    case photo
+    case videoPoster(subject: String)
+}
+
 final class SemanticImageSearchService {
     static let shared = SemanticImageSearchService()
 
@@ -28,11 +33,18 @@ final class SemanticImageSearchService {
         assets: [PHAsset],
         kind: CandidateKind,
         slots: NormalizedSlots,
-        limit: Int
+        limit: Int,
+        mode: SemanticSearchMode = .photo
     ) async throws -> SemanticSearchOutcome {
         let searchStarted = CFAbsoluteTimeGetCurrent()
         let models = try loadedModels()
-        let query = SemanticQueryPlanner.query(for: slots)
+        let query: SemanticQuery
+        switch mode {
+        case .photo:
+            query = SemanticQueryPlanner.query(for: slots)
+        case .videoPoster(let subject):
+            query = SemanticQueryPlanner.videoPosterQuery(subject: subject)
+        }
         let positiveEmbeddings = try textEmbeddings(for: query.positivePrompts, models: models)
         let negativeEmbeddings = try textEmbeddings(for: query.negativePrompts, models: models)
         let scanAssets = Array(assets.prefix(semanticScanLimit(for: slots)))
@@ -620,7 +632,26 @@ private enum SemanticQueryPlanner {
         let subject = normalizedWhitespace(phrase.isEmpty ? keyword : phrase)
         let searchText = "\(subject) \(phrase)".lowercased()
 
-        let wantsScreen = containsAny(searchText, terms: ["截图", "截屏", "屏幕", "界面", "screen", "screenshot"])
+        return query(subject: subject, searchText: searchText)
+    }
+
+    static func videoPosterQuery(subject: String) -> SemanticQuery {
+        let normalizedSubject = normalizedWhitespace(subject)
+        let searchText = normalizedSubject.lowercased()
+        let visualSubject: String
+        if containsAny(searchText, terms: ["游戏", "手游", "game", "gameplay"]) {
+            visualSubject = "游戏截图"
+        } else if containsAny(searchText, terms: ["录屏", "截图", "截屏", "screen", "screenshot"]) {
+            visualSubject = "截图"
+        } else {
+            visualSubject = "\(normalizedSubject)图片"
+        }
+        return query(subject: visualSubject, searchText: searchText)
+    }
+
+    private static func query(subject: String, searchText: String) -> SemanticQuery {
+
+        let wantsScreen = containsAny(searchText, terms: ["录屏", "截图", "截屏", "屏幕", "界面", "screen", "screenshot"])
         let wantsGame = containsAny(searchText, terms: ["游戏", "手游", "游戏画面", "game", "gameplay"])
         let wantsScenery = containsAny(
             searchText,

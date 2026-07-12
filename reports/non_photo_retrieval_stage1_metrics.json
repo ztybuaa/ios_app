@@ -1,0 +1,773 @@
+{
+  "manifest": "processed/eval/non_photo_resource_retrieval/manifest.json",
+  "reference_date": "2026-07-13",
+  "results": [
+    {
+      "method": "baseline",
+      "metrics": {
+        "file": {
+          "closed_queries": 6,
+          "top1": 0.6666666666666666,
+          "mrr": 0.6875,
+          "recall_at_3": 0.6666666666666666,
+          "open_queries": 3,
+          "open_false_positives": 1,
+          "open_false_positive_rate": 0.3333333333333333
+        },
+        "folder": {
+          "closed_queries": 6,
+          "top1": 0.5,
+          "mrr": 0.5277777777777778,
+          "recall_at_3": 0.5,
+          "open_queries": 3,
+          "open_false_positives": 1,
+          "open_false_positive_rate": 0.3333333333333333
+        },
+        "contact": {
+          "closed_queries": 8,
+          "top1": 0.5,
+          "mrr": 0.5,
+          "recall_at_3": 0.5,
+          "open_queries": 2,
+          "open_false_positives": 0,
+          "open_false_positive_rate": 0.0
+        },
+        "overall": {
+          "closed_queries": 20,
+          "top1": 0.55,
+          "mrr": 0.5645833333333334,
+          "recall_at_3": 0.55,
+          "open_queries": 8,
+          "open_false_positives": 2,
+          "open_false_positive_rate": 0.25
+        }
+      },
+      "details": [
+        {
+          "query_id": "file-region-format",
+          "kind": "file",
+          "expected": [
+            "file-east-contract-pdf"
+          ],
+          "top_results": [
+            {
+              "id": "file-east-contract-pdf",
+              "score": 3.0
+            },
+            {
+              "id": "file-latest-invoice-pdf",
+              "score": 1.0
+            },
+            {
+              "id": "file-stellar-report-q1",
+              "score": 1.0
+            }
+          ]
+        },
+        {
+          "query_id": "file-recent-project-report",
+          "kind": "file",
+          "expected": [
+            "file-stellar-report-q2"
+          ],
+          "top_results": [
+            {
+              "id": "file-budget-xlsx",
+              "score": 0.25
+            },
+            {
+              "id": "file-api-meeting-notes",
+              "score": 0.25
+            },
+            {
+              "id": "file-latest-invoice-pdf",
+              "score": 0.25
+            }
+          ]
+        },
+        {
+          "query_id": "file-infix-variation",
+          "kind": "file",
+          "expected": [
+            "file-east-contract-pdf",
+            "file-west-contract-docx"
+          ],
+          "top_results": []
+        },
+        {
+          "query_id": "file-format-and-subject",
+          "kind": "file",
+          "expected": [
+            "file-budget-xlsx"
+          ],
+          "top_results": [
+            {
+              "id": "file-budget-xlsx",
+              "score": 3.0
+            }
+          ]
+        },
+        {
+          "query_id": "file-structured-only-recent-pdf",
+          "kind": "file",
+          "expected": [
+            "file-latest-invoice-pdf"
+          ],
+          "top_results": [
+            {
+              "id": "file-latest-invoice-pdf",
+              "score": 1.25
+            },
+            {
+              "id": "file-east-contract-pdf",
+              "score": 1.25
+            },
+            {
+              "id": "file-stellar-report-q1",
+              "score": 1.25
+            }
+          ]
+        },
+        {
+          "query_id": "file-meeting-notes",
+          "kind": "file",
+          "expected": [
+            "file-api-meeting-notes"
+          ],
+          "top_results": [
+            {
+              "id": "file-api-meeting-notes",
+              "score": 2.0
+            }
+          ]
+        },
+        {
+          "query_id": "file-open-unknown-topic",
+          "kind": "file",
+          "expected": [],
+          "top_results": []
+        },
+        {
+          "query_id": "file-open-wrong-domain",
+          "kind": "file",
+          "expected": [],
+          "top_results": []
+        },
+        {
+          "query_id": "file-open-structured-unknown",
+          "kind": "file",
+          "expected": [],
+          "top_results": [
+            {
+              "id": "file-latest-invoice-pdf",
+              "score": 1.25
+            },
+            {
+              "id": "file-east-contract-pdf",
+              "score": 1.25
+            },
+            {
+              "id": "file-stellar-report-q1",
+              "score": 1.25
+            }
+          ]
+        },
+        {
+          "query_id": "folder-exact-title",
+          "kind": "folder",
+          "expected": [
+            "folder-stellar-project"
+          ],
+          "top_results": [
+            {
+              "id": "folder-stellar-project",
+              "score": 2.0
+            }
+          ]
+        },
+        {
+          "query_id": "folder-infix-variation",
+          "kind": "folder",
+          "expected": [
+            "folder-contract-archive"
+          ],
+          "top_results": []
+        },
+        {
+          "query_id": "folder-recent-project",
+          "kind": "folder",
+          "expected": [
+            "folder-stellar-project"
+          ],
+          "top_results": [
+            {
+              "id": "folder-meeting-notes",
+              "score": 0.25
+            },
+            {
+              "id": "folder-contract-archive",
+              "score": 0.25
+            },
+            {
+              "id": "folder-import-templates",
+              "score": 0.25
+            }
+          ]
+        },
+        {
+          "query_id": "folder-child-evidence",
+          "kind": "folder",
+          "expected": [
+            "folder-contract-archive"
+          ],
+          "top_results": []
+        },
+        {
+          "query_id": "folder-photo-backup",
+          "kind": "folder",
+          "expected": [
+            "folder-photo-backup"
+          ],
+          "top_results": [
+            {
+              "id": "folder-photo-backup",
+              "score": 2.0
+            }
+          ]
+        },
+        {
+          "query_id": "folder-import-template",
+          "kind": "folder",
+          "expected": [
+            "folder-import-templates"
+          ],
+          "top_results": [
+            {
+              "id": "folder-import-templates",
+              "score": 2.0
+            }
+          ]
+        },
+        {
+          "query_id": "folder-open-unknown-topic",
+          "kind": "folder",
+          "expected": [],
+          "top_results": []
+        },
+        {
+          "query_id": "folder-open-wrong-domain",
+          "kind": "folder",
+          "expected": [],
+          "top_results": []
+        },
+        {
+          "query_id": "folder-open-structured-unknown",
+          "kind": "folder",
+          "expected": [],
+          "top_results": [
+            {
+              "id": "folder-meeting-notes",
+              "score": 0.25
+            },
+            {
+              "id": "folder-contract-archive",
+              "score": 0.25
+            },
+            {
+              "id": "folder-import-templates",
+              "score": 0.25
+            }
+          ]
+        },
+        {
+          "query_id": "contact-pinyin-full-name",
+          "kind": "contact",
+          "expected": [
+            "contact-zhang-ming"
+          ],
+          "top_results": [
+            {
+              "id": "contact-zhang-ming",
+              "score": 4.0
+            },
+            {
+              "id": "contact-zhang-min",
+              "score": 2.0
+            }
+          ]
+        },
+        {
+          "query_id": "contact-nickname",
+          "kind": "contact",
+          "expected": [
+            "contact-zhang-ming"
+          ],
+          "top_results": [
+            {
+              "id": "contact-zhang-ming",
+              "score": 2.0
+            }
+          ]
+        },
+        {
+          "query_id": "contact-normalized-phone",
+          "kind": "contact",
+          "expected": [
+            "contact-zhang-ming"
+          ],
+          "top_results": []
+        },
+        {
+          "query_id": "contact-email-case",
+          "kind": "contact",
+          "expected": [
+            "contact-zhang-ming"
+          ],
+          "top_results": [
+            {
+              "id": "contact-zhang-ming",
+              "score": 2.0
+            }
+          ]
+        },
+        {
+          "query_id": "contact-organization-job",
+          "kind": "contact",
+          "expected": [
+            "contact-wang-wei"
+          ],
+          "top_results": []
+        },
+        {
+          "query_id": "contact-pinyin-short-name",
+          "kind": "contact",
+          "expected": [
+            "contact-li-na"
+          ],
+          "top_results": []
+        },
+        {
+          "query_id": "contact-english-alias",
+          "kind": "contact",
+          "expected": [
+            "contact-alice-chen"
+          ],
+          "top_results": [
+            {
+              "id": "contact-alice-chen",
+              "score": 4.0
+            }
+          ]
+        },
+        {
+          "query_id": "contact-organization-job-two",
+          "kind": "contact",
+          "expected": [
+            "contact-zhang-ming"
+          ],
+          "top_results": []
+        },
+        {
+          "query_id": "contact-open-unknown-name",
+          "kind": "contact",
+          "expected": [],
+          "top_results": []
+        },
+        {
+          "query_id": "contact-open-unknown-phone",
+          "kind": "contact",
+          "expected": [],
+          "top_results": []
+        }
+      ]
+    },
+    {
+      "method": "field_aware",
+      "metrics": {
+        "file": {
+          "closed_queries": 6,
+          "top1": 1.0,
+          "mrr": 1.0,
+          "recall_at_3": 1.0,
+          "open_queries": 3,
+          "open_false_positives": 0,
+          "open_false_positive_rate": 0.0
+        },
+        "folder": {
+          "closed_queries": 6,
+          "top1": 1.0,
+          "mrr": 1.0,
+          "recall_at_3": 1.0,
+          "open_queries": 3,
+          "open_false_positives": 0,
+          "open_false_positive_rate": 0.0
+        },
+        "contact": {
+          "closed_queries": 8,
+          "top1": 1.0,
+          "mrr": 1.0,
+          "recall_at_3": 1.0,
+          "open_queries": 2,
+          "open_false_positives": 0,
+          "open_false_positive_rate": 0.0
+        },
+        "overall": {
+          "closed_queries": 20,
+          "top1": 1.0,
+          "mrr": 1.0,
+          "recall_at_3": 1.0,
+          "open_queries": 8,
+          "open_false_positives": 0,
+          "open_false_positive_rate": 0.0
+        }
+      },
+      "details": [
+        {
+          "query_id": "file-region-format",
+          "kind": "file",
+          "expected": [
+            "file-east-contract-pdf"
+          ],
+          "top_results": [
+            {
+              "id": "file-east-contract-pdf",
+              "score": 11.013438
+            }
+          ]
+        },
+        {
+          "query_id": "file-recent-project-report",
+          "kind": "file",
+          "expected": [
+            "file-stellar-report-q2"
+          ],
+          "top_results": [
+            {
+              "id": "file-stellar-report-q2",
+              "score": 10.826786
+            },
+            {
+              "id": "file-stellar-report-q1",
+              "score": 8.394446
+            }
+          ]
+        },
+        {
+          "query_id": "file-infix-variation",
+          "kind": "file",
+          "expected": [
+            "file-east-contract-pdf",
+            "file-west-contract-docx"
+          ],
+          "top_results": [
+            {
+              "id": "file-east-contract-pdf",
+              "score": 6.754167
+            },
+            {
+              "id": "file-west-contract-docx",
+              "score": 6.754167
+            }
+          ]
+        },
+        {
+          "query_id": "file-format-and-subject",
+          "kind": "file",
+          "expected": [
+            "file-budget-xlsx"
+          ],
+          "top_results": [
+            {
+              "id": "file-budget-xlsx",
+              "score": 14.544135
+            }
+          ]
+        },
+        {
+          "query_id": "file-structured-only-recent-pdf",
+          "kind": "file",
+          "expected": [
+            "file-latest-invoice-pdf"
+          ],
+          "top_results": [
+            {
+              "id": "file-latest-invoice-pdf",
+              "score": 4.625
+            },
+            {
+              "id": "file-east-contract-pdf",
+              "score": 4.333333
+            },
+            {
+              "id": "file-stellar-report-q1",
+              "score": 2.192661
+            }
+          ]
+        },
+        {
+          "query_id": "file-meeting-notes",
+          "kind": "file",
+          "expected": [
+            "file-api-meeting-notes"
+          ],
+          "top_results": [
+            {
+              "id": "file-api-meeting-notes",
+              "score": 9.024887
+            }
+          ]
+        },
+        {
+          "query_id": "file-open-unknown-topic",
+          "kind": "file",
+          "expected": [],
+          "top_results": []
+        },
+        {
+          "query_id": "file-open-wrong-domain",
+          "kind": "file",
+          "expected": [],
+          "top_results": []
+        },
+        {
+          "query_id": "file-open-structured-unknown",
+          "kind": "file",
+          "expected": [],
+          "top_results": []
+        },
+        {
+          "query_id": "folder-exact-title",
+          "kind": "folder",
+          "expected": [
+            "folder-stellar-project"
+          ],
+          "top_results": [
+            {
+              "id": "folder-stellar-project",
+              "score": 12.95375
+            },
+            {
+              "id": "folder-stellar-archive",
+              "score": 8.07
+            }
+          ]
+        },
+        {
+          "query_id": "folder-infix-variation",
+          "kind": "folder",
+          "expected": [
+            "folder-contract-archive"
+          ],
+          "top_results": [
+            {
+              "id": "folder-contract-archive",
+              "score": 6.754167
+            }
+          ]
+        },
+        {
+          "query_id": "folder-recent-project",
+          "kind": "folder",
+          "expected": [
+            "folder-stellar-project"
+          ],
+          "top_results": [
+            {
+              "id": "folder-stellar-project",
+              "score": 17.714904
+            },
+            {
+              "id": "folder-stellar-archive",
+              "score": 14.963228
+            }
+          ]
+        },
+        {
+          "query_id": "folder-child-evidence",
+          "kind": "folder",
+          "expected": [
+            "folder-contract-archive"
+          ],
+          "top_results": [
+            {
+              "id": "folder-contract-archive",
+              "score": 4.5
+            }
+          ]
+        },
+        {
+          "query_id": "folder-photo-backup",
+          "kind": "folder",
+          "expected": [
+            "folder-photo-backup"
+          ],
+          "top_results": [
+            {
+              "id": "folder-photo-backup",
+              "score": 11.12375
+            }
+          ]
+        },
+        {
+          "query_id": "folder-import-template",
+          "kind": "folder",
+          "expected": [
+            "folder-import-templates"
+          ],
+          "top_results": [
+            {
+              "id": "folder-import-templates",
+              "score": 12.910714
+            }
+          ]
+        },
+        {
+          "query_id": "folder-open-unknown-topic",
+          "kind": "folder",
+          "expected": [],
+          "top_results": []
+        },
+        {
+          "query_id": "folder-open-wrong-domain",
+          "kind": "folder",
+          "expected": [],
+          "top_results": []
+        },
+        {
+          "query_id": "folder-open-structured-unknown",
+          "kind": "folder",
+          "expected": [],
+          "top_results": []
+        },
+        {
+          "query_id": "contact-pinyin-full-name",
+          "kind": "contact",
+          "expected": [
+            "contact-zhang-ming"
+          ],
+          "top_results": [
+            {
+              "id": "contact-zhang-ming",
+              "score": 7.0
+            },
+            {
+              "id": "contact-zhang-min",
+              "score": 6.60625
+            }
+          ]
+        },
+        {
+          "query_id": "contact-nickname",
+          "kind": "contact",
+          "expected": [
+            "contact-zhang-ming"
+          ],
+          "top_results": [
+            {
+              "id": "contact-zhang-ming",
+              "score": 7.0
+            }
+          ]
+        },
+        {
+          "query_id": "contact-normalized-phone",
+          "kind": "contact",
+          "expected": [
+            "contact-zhang-ming"
+          ],
+          "top_results": [
+            {
+              "id": "contact-zhang-ming",
+              "score": 8.0
+            }
+          ]
+        },
+        {
+          "query_id": "contact-email-case",
+          "kind": "contact",
+          "expected": [
+            "contact-zhang-ming"
+          ],
+          "top_results": [
+            {
+              "id": "contact-zhang-ming",
+              "score": 10.0
+            }
+          ]
+        },
+        {
+          "query_id": "contact-organization-job",
+          "kind": "contact",
+          "expected": [
+            "contact-wang-wei"
+          ],
+          "top_results": [
+            {
+              "id": "contact-wang-wei",
+              "score": 8.375
+            }
+          ]
+        },
+        {
+          "query_id": "contact-pinyin-short-name",
+          "kind": "contact",
+          "expected": [
+            "contact-li-na"
+          ],
+          "top_results": [
+            {
+              "id": "contact-li-na",
+              "score": 7.0
+            },
+            {
+              "id": "contact-lin-na",
+              "score": 5.6
+            },
+            {
+              "id": "contact-alice-chen",
+              "score": 3.733333
+            }
+          ]
+        },
+        {
+          "query_id": "contact-english-alias",
+          "kind": "contact",
+          "expected": [
+            "contact-alice-chen"
+          ],
+          "top_results": [
+            {
+              "id": "contact-alice-chen",
+              "score": 15.578125
+            }
+          ]
+        },
+        {
+          "query_id": "contact-organization-job-two",
+          "kind": "contact",
+          "expected": [
+            "contact-zhang-ming"
+          ],
+          "top_results": [
+            {
+              "id": "contact-zhang-ming",
+              "score": 8.375
+            }
+          ]
+        },
+        {
+          "query_id": "contact-open-unknown-name",
+          "kind": "contact",
+          "expected": [],
+          "top_results": []
+        },
+        {
+          "query_id": "contact-open-unknown-phone",
+          "kind": "contact",
+          "expected": [],
+          "top_results": []
+        }
+      ]
+    }
+  ]
+}

@@ -63,7 +63,7 @@ final class DemoViewModel: ObservableObject {
                 memoryMB: PerformanceMonitor.currentResidentMemoryMB()
             )
 
-            markStage("推理完成：准备中文语义检索")
+            markStage("推理完成：准备资源候选检索")
             let result = await searchService.search(
                 intent: prediction.intent,
                 slots: prediction.normalizedSlots

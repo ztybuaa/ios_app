@@ -11,16 +11,22 @@ on:
       - "scripts/eval_chinese_clip_rn50.py"
       - "scripts/diagnose_rn50_precision.py"
       - "scripts/validate_chinese_clip_multiclass_quality.py"
+      - "scripts/eval_video_poster_prompt_proxy.py"
       - "scripts/validate_semantic_search_performance.py"
       - "scripts/prepare_semantic_eval_dataset.py"
       - "scripts/verify_chinese_clip_coreml_artifacts.py"
       - "scripts/validate_ios_project.py"
+      - "scripts/validate_resource_query_normalization.py"
+      - "scripts/eval_non_photo_retrieval.py"
       - "scripts/requirements/chinese_clip_eval.txt"
       - "scripts/requirements/chinese_clip_coreml.txt"
       - "processed/eval/semantic_image_retrieval/manifest.json"
+      - "processed/eval/non_photo_resource_retrieval/manifest.json"
       - "scripts/ci/check_no_large_git_files.sh"
       - "scripts/ci/stage_chinese_clip_assets.sh"
       - "scripts/ci/build_unsigned_ipa.sh"
+      - "scripts/ci/validate_slot_normalizer.swift"
+      - "scripts/ci/validate_candidate_scorer.swift"
       - ".github/workflows/build-ios-unsigned-ipa.yml"
 
 permissions:
@@ -67,12 +73,15 @@ jobs:
       - name: Install pinned semantic evaluation dependencies
         run: .venv/bin/python -m pip install -r scripts/requirements/chinese_clip_eval.txt
 
-      - name: Run semantic retrieval regression gates
+      - name: Run resource retrieval regression gates
         run: |
+          .venv/bin/python scripts/validate_resource_query_normalization.py
+          .venv/bin/python scripts/eval_non_photo_retrieval.py
           .venv/bin/python scripts/validate_semantic_search_performance.py --assets 2000 --result-limit 12
           .venv/bin/python scripts/prepare_semantic_eval_dataset.py
           .venv/bin/python scripts/eval_chinese_clip_rn50.py
           .venv/bin/python scripts/validate_chinese_clip_multiclass_quality.py
+          .venv/bin/python scripts/eval_video_poster_prompt_proxy.py --output build/diagnostics/video_poster_prompt_proxy.json
           .venv/bin/python scripts/diagnose_rn50_precision.py
 
       - name: Restore converted Core ML cache
@@ -100,6 +109,25 @@ jobs:
         run: |
           xcodebuild -version
           xcrun --sdk iphoneos --show-sdk-version
+
+      - name: Run Swift resource query normalization tests
+        run: |
+          cp scripts/ci/validate_slot_normalizer.swift /tmp/main.swift
+          xcrun swiftc \
+            ios_app/IntentResourceDemo/NLP/SlotNormalizer.swift \
+            /tmp/main.swift \
+            -o /tmp/validate_slot_normalizer
+          /tmp/validate_slot_normalizer
+
+      - name: Run Swift candidate scorer tests
+        run: |
+          cp scripts/ci/validate_candidate_scorer.swift /tmp/main.swift
+          xcrun swiftc \
+            ios_app/IntentResourceDemo/NLP/SlotNormalizer.swift \
+            ios_app/IntentResourceDemo/ResourceModules/ResourceModels.swift \
+            /tmp/main.swift \
+            -o /tmp/validate_candidate_scorer
+          /tmp/validate_candidate_scorer
 
       - name: Build unsigned IPA
         run: bash scripts/ci/build_unsigned_ipa.sh

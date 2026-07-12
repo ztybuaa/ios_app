@@ -27,6 +27,11 @@ DEMO_VIEW_MODEL = APP_ROOT / "App" / "DemoViewModel.swift"
 CONTENT_VIEW = APP_ROOT / "Views" / "ContentView.swift"
 SEMANTIC_SEARCH = APP_ROOT / "ResourceModules" / "SemanticImageSearchService.swift"
 MEDIA_RESOURCE = APP_ROOT / "ResourceModules" / "MediaResourceModule.swift"
+RESOURCE_MODELS = APP_ROOT / "ResourceModules" / "ResourceModels.swift"
+FILE_FOLDER_RESOURCE = APP_ROOT / "ResourceModules" / "FileFolderResourceModule.swift"
+CONTACT_RESOURCE = APP_ROOT / "ResourceModules" / "ContactResourceModule.swift"
+RESOURCE_SEARCH_SERVICE = APP_ROOT / "ResourceModules" / "ResourceSearchService.swift"
+SLOT_NORMALIZER = APP_ROOT / "NLP" / "SlotNormalizer.swift"
 CHINESE_CLIP_TOKENIZER = APP_ROOT / "NLP" / "Tokenizer" / "ChineseCLIPTokenizer.swift"
 
 SWIFT_FILES = [
@@ -113,6 +118,8 @@ def validate_resource_index():
         for item in payload[section]:
             for key in ("id", "kind", "title", "path", "summary", "tags"):
                 require(key in item, f"{section} item missing {key}")
+            evidence_key = "contentTerms" if section == "files" else "childTerms"
+            require(item.get(evidence_key), f"{section} item missing indexed evidence {evidence_key}")
 
 
 def validate_info_plist():
@@ -231,6 +238,50 @@ def validate_chinese_clip_flow():
     require(vocab[13_502] == "##" + chr(0x2028), "Chinese-CLIP vocabulary lost the ##U+2028 token at ID 13502")
 
 
+def validate_non_photo_flow():
+    resource_models = RESOURCE_MODELS.read_text(encoding="utf-8")
+    file_folder = FILE_FOLDER_RESOURCE.read_text(encoding="utf-8")
+    contacts = CONTACT_RESOURCE.read_text(encoding="utf-8")
+    resource_service = RESOURCE_SEARCH_SERVICE.read_text(encoding="utf-8")
+    media = MEDIA_RESOURCE.read_text(encoding="utf-8")
+    semantic = SEMANTIC_SEARCH.read_text(encoding="utf-8")
+    normalizer = SLOT_NORMALIZER.read_text(encoding="utf-8")
+
+    for contract in (
+        "struct CandidateTextField",
+        "static func lexicalScore(",
+        "minimumLexicalScore = 3.0",
+        "matchesStructuredFilters",
+        "structuredDateInterval",
+        "contentTerms",
+        "childTerms",
+    ):
+        require(contract in resource_models, f"field-aware candidate scorer missing {contract}")
+    require("private let index: Result<SampleResourceIndex, Error>" in file_folder, "file index failures must remain observable")
+    require("func search(kind: CandidateKind, slots: NormalizedSlots, limit: Int = 12) throws" in file_folder, "file/folder search must surface index failures")
+    require("try?" not in file_folder, "file/folder provider must not silently discard index errors")
+
+    for contract in (
+        "CNContactStoreDidChange",
+        "CNContactPhoneticGivenNameKey",
+        "CNContactDepartmentNameKey",
+        "CNContactPostalAddressesKey",
+        "CandidateScorer.lexicalScore",
+    ):
+        require(contract in contacts, f"field-aware contact retrieval missing {contract}")
+    require("try files.search" in resource_service, "resource service must observe file/folder failures")
+    require("资源候选检索失败" in resource_service and "目标联系人检索失败" in resource_service, "resource and target failures must be reported independently")
+
+    require("mode: .videoPoster(subject: semanticSubject)" in media, "video semantic subjects must use the poster-frame mode")
+    require("matchesMetadata" in media, "media structured filters must run before poster inference")
+    require("hasPostFetchMetadataFilter" in media, "post-fetch metadata filters need an explicit wider scan bound")
+    require("hasSemanticSubject" in media, "generic video requests must not be treated as semantic subjects")
+    require("static func videoPosterQuery" in semantic, "video poster queries must be normalized to the image domain")
+    require('visualSubject = "\\(normalizedSubject)图片"' in semantic, "video poster prompt must use the verified image-domain suffix")
+    require("resourceSuffixes" in normalizer and '"file": ["文件", "文档"]' in normalizer, "slot normalizer must preserve file subjects such as contracts and reports")
+    require("cacheGeneration" in contacts, "contact cache invalidation must reject stale in-flight enumerations")
+
+
 def validate_github_actions():
     workflow_text = GITHUB_WORKFLOW.read_text(encoding="utf-8")
     script_text = CI_BUILD_SCRIPT.read_text(encoding="utf-8")
@@ -250,6 +301,11 @@ def validate_github_actions():
         "workflow should enforce the bounded two-stage performance policy",
     )
     require("scripts/diagnose_rn50_precision.py" in workflow_text, "workflow should run semantic precision stress tests")
+    require("scripts/validate_resource_query_normalization.py" in workflow_text, "workflow should validate query normalization")
+    require("scripts/eval_non_photo_retrieval.py" in workflow_text, "workflow should run non-photo retrieval regression")
+    require("scripts/eval_video_poster_prompt_proxy.py" in workflow_text, "workflow should run the video poster prompt proxy")
+    require("scripts/ci/validate_slot_normalizer.swift" in workflow_text, "workflow should run Swift query normalization tests")
+    require("scripts/ci/validate_candidate_scorer.swift" in workflow_text, "workflow should run Swift candidate scorer tests")
     require("actions/upload-artifact@v4" in workflow_text, "workflow should upload IPA artifact")
     require("CODE_SIGNING_ALLOWED=NO" in script_text, "unsigned build should disable code signing")
     require("IntentResourceDemo-unsigned.ipa" in script_text, "build script should produce unsigned IPA")
@@ -271,6 +327,7 @@ def main():
     validate_info_plist()
     validate_project_references()
     validate_chinese_clip_flow()
+    validate_non_photo_flow()
     validate_github_actions()
     print("iOS project validation passed")
     print(f"Swift files: {len(SWIFT_FILES)}")
