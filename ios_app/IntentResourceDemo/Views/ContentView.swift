@@ -1,9 +1,11 @@
+import Foundation
 import SwiftUI
 import Translation
 
 struct ContentView: View {
     @EnvironmentObject private var modelStore: ModelStore
     @StateObject private var viewModel: DemoViewModel
+    @State private var translationDiagnosticIsBusy = false
 
     init() {
         _viewModel = StateObject(wrappedValue: DemoViewModel(modelStore: ModelStore.shared))
@@ -13,6 +15,12 @@ struct ContentView: View {
         NavigationStack {
             List {
                 inputSection
+                if #available(iOS 18.0, *) {
+                    TranslationDiagnosticSection(
+                        isProductionRunning: viewModel.isRunning,
+                        isBusy: $translationDiagnosticIsBusy
+                    )
+                }
                 if let inference = viewModel.inference {
                     InferenceView(inference: inference)
                 }
@@ -45,7 +53,7 @@ struct ContentView: View {
                             Label("运行", systemImage: "play.fill")
                         }
                     }
-                    .disabled(viewModel.isRunning)
+                    .disabled(viewModel.isRunning || translationDiagnosticIsBusy)
                 }
             }
         }
@@ -65,7 +73,7 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
-            .disabled(viewModel.isRunning)
+            .disabled(viewModel.isRunning || translationDiagnosticIsBusy)
 
             if let error = modelStore.errorMessage {
                 Text(error)
@@ -73,6 +81,244 @@ struct ContentView: View {
                     .foregroundStyle(.red)
             }
         }
+    }
+}
+
+@available(iOS 18.0, *)
+private struct TranslationDiagnosticSection: View {
+    let isProductionRunning: Bool
+    @Binding var isBusy: Bool
+
+    @State private var showsSystemTranslation = false
+    @State private var systemSourceText = "小猫图片"
+    @State private var systemUIResult = "systemUI=notRun"
+    @State private var replacementCallbackFired = false
+
+    private var controlsDisabled: Bool {
+        isProductionRunning || isBusy
+    }
+
+    var body: some View {
+        Section("翻译对照") {
+            AutomaticTranslationProbe(
+                probeID: "nounPhrase",
+                title: "自动会话：短语",
+                sourceText: "小猫图片",
+                systemImage: "text.bubble",
+                isDisabled: controlsDisabled,
+                onRunningChange: { isBusy = $0 }
+            )
+
+            AutomaticTranslationProbe(
+                probeID: "fullCommand",
+                title: "自动会话：完整句子",
+                sourceText: "把小猫图片发给小明",
+                systemImage: "text.quote",
+                isDisabled: controlsDisabled,
+                onRunningChange: { isBusy = $0 }
+            )
+
+            AutomaticTranslationProbe(
+                probeID: "knownBaseline",
+                title: "自动会话：基准句",
+                sourceText: "你好，世界！",
+                systemImage: "character.book.closed",
+                isDisabled: controlsDisabled,
+                onRunningChange: { isBusy = $0 }
+            )
+
+            Button {
+                guard !controlsDisabled else {
+                    return
+                }
+                systemSourceText = "小猫图片"
+                replacementCallbackFired = false
+                systemUIResult = [
+                    "systemUI=requested",
+                    "source=\(String(reflecting: systemSourceText))",
+                    "replacementCallbackFired=false"
+                ].joined(separator: "\n")
+                isBusy = true
+                showsSystemTranslation = true
+            } label: {
+                Label("系统翻译界面", systemImage: "globe")
+            }
+            .disabled(controlsDisabled)
+
+            Text(systemUIResult)
+                .font(.footnote.monospaced())
+                .foregroundStyle(.secondary)
+
+            Text(environmentResult)
+                .font(.footnote.monospaced())
+                .foregroundStyle(.secondary)
+        }
+        .translationPresentation(
+            isPresented: $showsSystemTranslation,
+            text: systemSourceText
+        ) { translatedText in
+            replacementCallbackFired = true
+            systemUIResult = [
+                "systemUI=replacementReturned",
+                "source=\(String(reflecting: systemSourceText))",
+                "translated=\(String(reflecting: translatedText))",
+                "characters=\(translatedText.count)",
+                "utf8Bytes=\(translatedText.utf8.count)",
+                "replacementCallbackFired=true"
+            ].joined(separator: "\n")
+        }
+        .onChange(of: showsSystemTranslation) { isPresented in
+            guard !isPresented else {
+                return
+            }
+            if !replacementCallbackFired {
+                systemUIResult = [
+                    "systemUI=dismissedWithoutReplacement",
+                    "source=\(String(reflecting: systemSourceText))",
+                    "replacementCallbackFired=false"
+                ].joined(separator: "\n")
+            }
+            isBusy = false
+        }
+        .onDisappear {
+            isBusy = false
+        }
+    }
+
+    private var environmentResult: String {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown"
+        return [
+            "appVersion=\(version)",
+            "appBuild=\(build)",
+            "os=\(ProcessInfo.processInfo.operatingSystemVersionString)",
+            "preferredLanguages=\(Locale.preferredLanguages)"
+        ].joined(separator: "\n")
+    }
+}
+
+@available(iOS 18.0, *)
+private struct AutomaticTranslationProbe: View {
+    let probeID: String
+    let title: String
+    let sourceText: String
+    let systemImage: String
+    let isDisabled: Bool
+    let onRunningChange: (Bool) -> Void
+
+    @State private var configuration: TranslationSession.Configuration?
+    @State private var attemptID: UUID?
+    @State private var result = "notRun"
+
+    var body: some View {
+        Group {
+            Button {
+                run()
+            } label: {
+                Label(title, systemImage: systemImage)
+            }
+            .disabled(isDisabled || attemptID != nil)
+
+            Text(result)
+                .font(.footnote.monospaced())
+                .foregroundStyle(.secondary)
+        }
+        .translationTask(configuration) { session in
+            guard let currentAttemptID = attemptID else {
+                return
+            }
+            let startedAt = Date()
+
+            do {
+                let response = try await session.translate(sourceText)
+                let durationMs = Date().timeIntervalSince(startedAt) * 1_000
+                let requestScalars = sourceText.unicodeScalars
+                    .map { "U+\(String($0.value, radix: 16, uppercase: true))" }
+                    .joined(separator: ", ")
+                let targetScalars = response.targetText.unicodeScalars
+                    .map { "U+\(String($0.value, radix: 16, uppercase: true))" }
+                    .joined(separator: ", ")
+                finish(
+                    [
+                        "probeID=\(probeID)",
+                        "attemptID=\(currentAttemptID.uuidString)",
+                        "api=single",
+                        "configuredSource=nil",
+                        "configuredTarget=nil",
+                        "request=\(String(reflecting: sourceText))",
+                        "requestCharacters=\(sourceText.count)",
+                        "requestUTF8Bytes=\(sourceText.utf8.count)",
+                        "requestScalars=[\(requestScalars)]",
+                        "durationMs=\(String(format: "%.2f", durationMs))",
+                        "responseSourceMatchesRequest=\(response.sourceText == sourceText)",
+                        "sourceLanguage=\(String(reflecting: response.sourceLanguage))",
+                        "targetLanguage=\(String(reflecting: response.targetLanguage))",
+                        "rawTarget=\(String(reflecting: response.targetText))",
+                        "targetCharacters=\(response.targetText.count)",
+                        "targetUTF8Bytes=\(response.targetText.utf8.count)",
+                        "targetScalars=[\(targetScalars)]"
+                    ].joined(separator: "\n"),
+                    attemptID: currentAttemptID
+                )
+            } catch {
+                let durationMs = Date().timeIntervalSince(startedAt) * 1_000
+                let nsError = error as NSError
+                finish(
+                    [
+                        "probeID=\(probeID)",
+                        "attemptID=\(currentAttemptID.uuidString)",
+                        "api=single",
+                        "configuredSource=nil",
+                        "configuredTarget=nil",
+                        "request=\(String(reflecting: sourceText))",
+                        "durationMs=\(String(format: "%.2f", durationMs))",
+                        "status=failed",
+                        "type=\(String(reflecting: type(of: error)))",
+                        "domain=\(nsError.domain)",
+                        "code=\(nsError.code)",
+                        "description=\(error.localizedDescription)"
+                    ].joined(separator: "\n"),
+                    attemptID: currentAttemptID
+                )
+            }
+        }
+        .onDisappear {
+            guard attemptID != nil else {
+                return
+            }
+            attemptID = nil
+            onRunningChange(false)
+        }
+    }
+
+    private func run() {
+        guard attemptID == nil, !isDisabled else {
+            return
+        }
+        let newAttemptID = UUID()
+        attemptID = newAttemptID
+        result = [
+            "probeID=\(probeID)",
+            "attemptID=\(newAttemptID.uuidString)",
+            "status=running",
+            "request=\(String(reflecting: sourceText))"
+        ].joined(separator: "\n")
+        onRunningChange(true)
+
+        if configuration == nil {
+            configuration = .init()
+        } else {
+            configuration?.invalidate()
+        }
+    }
+
+    private func finish(_ output: String, attemptID completedAttemptID: UUID) {
+        guard attemptID == completedAttemptID else {
+            return
+        }
+        result = output
+        attemptID = nil
+        onRunningChange(false)
     }
 }
 
