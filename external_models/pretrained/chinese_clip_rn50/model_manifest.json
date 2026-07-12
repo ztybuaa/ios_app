@@ -32,11 +32,11 @@
       "source": "https://github.com/OFA-Sys/Chinese-CLIP/blob/31863c707501bf1605d36842f43deb78793dbc5d/MIT-LICENSE.txt"
     },
     "verifiedFiles": {
-      "cn_clip/clip/vocab.txt": "f7863b040bae29ac474065729355252248c92d41141c1e09fbf21dd3e593a238",
-      "cn_clip/clip/model_configs/RN50.json": "8e8a94b0a90a7ad26efa87a7fe2cc5e7bb49a911b5b6992389cbe460655d68ad",
-      "cn_clip/clip/model_configs/RBT3-chinese.json": "7b53963a3abb5393578943cbb646d03fa86c28d75317b7c2e0ae39c050c98241",
-      "cn_clip/deploy/pytorch_to_coreml.py": "dab4348e8c2085f30ed05120f273c98dd12a6b7cd73512d1942e81fb2f277e3e",
-      "MIT-LICENSE.txt": "38606db043e83213415ca49945ffcd3da25ffec50356f9fc08bdf20aab12f88a"
+      "cn_clip/clip/vocab.txt": "45bbac6b341c319adc98a532532882e91a9cefc0329aa57bac9ae761c27b291c",
+      "cn_clip/clip/model_configs/RN50.json": "33d67ceefafa740e13e6254cf4b568342e5b254876222a457e9468be7b162107",
+      "cn_clip/clip/model_configs/RBT3-chinese.json": "05902f9b928bfef67c7540acb7ab974c9d570935a27fe25e371fd5d5d6185704",
+      "cn_clip/deploy/pytorch_to_coreml.py": "ff1af5c49904bb02c1ac754d0249e9f31da0bd3cd4ee7a7f62942e142bf86981",
+      "MIT-LICENSE.txt": "aaaac89467b2ed90ff9dedb180c43a9007b96cab2396ae5991568fc1940a49b6"
     }
   },
   "tokenizer": {
@@ -44,7 +44,7 @@
     "contextLength": 52,
     "vocabularySize": 21128,
     "appVocabularyPath": "ios_app/IntentResourceDemo/Resources/chinese_clip_vocab.txt",
-    "vocabularySha256": "f7863b040bae29ac474065729355252248c92d41141c1e09fbf21dd3e593a238",
+    "vocabularySha256": "45bbac6b341c319adc98a532532882e91a9cefc0329aa57bac9ae761c27b291c",
     "specialTokenIds": {
       "pad": 0,
       "unknown": 100,
