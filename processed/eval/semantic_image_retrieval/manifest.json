@@ -99,7 +99,7 @@
     {
       "id": "landscape",
       "chinese": "风景图片",
-      "hardNegatives": ["人物照片", "宠物照片", "手机截图", "文档图片"],
+      "hardNegatives": ["普通应用界面", "小猫", "小狗", "人像", "宠物", "文字文档"],
       "minimumMargin": 0.012,
       "expected": ["moraine_lake", "beach"],
       "topK": 3
@@ -107,7 +107,7 @@
     {
       "id": "woman",
       "chinese": "美女图片",
-      "hardNegatives": ["宠物照片", "风景照片", "手机截图", "没有人物的物品照片"],
+      "hardNegatives": ["小猫", "小狗", "风景", "截图", "宠物"],
       "minimumMargin": 0.012,
       "expected": ["portrait_woman", "woman_afro"],
       "topK": 3

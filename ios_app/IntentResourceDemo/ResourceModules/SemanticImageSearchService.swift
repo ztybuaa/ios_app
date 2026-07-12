@@ -563,9 +563,9 @@ private enum SemanticQueryPlanner {
         } else if wantsDog {
             negativePrompts = ["猫的照片", "野生动物照片", "老虎照片", "风景照片", "人物照片", "手机截图"]
         } else if wantsScenery {
-            negativePrompts = ["人物照片", "宠物照片", "手机截图", "文档图片"]
+            negativePrompts = ["普通应用界面", "小猫", "小狗", "人像", "宠物", "文字文档"]
         } else if wantsPerson {
-            negativePrompts = ["宠物照片", "风景照片", "手机截图", "没有人物的物品照片"]
+            negativePrompts = ["小猫", "小狗", "风景", "截图", "宠物"]
         } else {
             negativePrompts = ["与查询内容无关的图片", "随机图片", "模糊图片"]
         }

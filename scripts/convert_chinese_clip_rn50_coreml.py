@@ -262,7 +262,7 @@ def main() -> None:
 
     report = {
         "schemaVersion": 1,
-        "model": manifest["model"],
+        "model": manifest["model"]["id"],
         "checkpoint": {
             "revision": checkpoint["revision"],
             "bytes": checkpoint["bytes"],

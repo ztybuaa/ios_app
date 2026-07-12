@@ -106,6 +106,8 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      GH_REPO: ${{ github.repository }}
     permissions:
       contents: write
     concurrency:

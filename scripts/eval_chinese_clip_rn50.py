@@ -18,18 +18,16 @@ IMAGE_ROOT = DATASET_ROOT / "images"
 MANIFEST_PATH = DATASET_ROOT / "manifest.json"
 RESULT_PATH = DATASET_ROOT / "results" / "chinese_clip_rn50_eval_report.json"
 REPORT_PATH = ROOT / "reports" / "chinese_clip_rn50_fp16_eval.md"
-MODEL_ROOT = ROOT / "external_models" / "pretrained" / "chinese_clip_rn50"
-CHECKPOINT_PATH = MODEL_ROOT / "clip_cn_rn50.pt"
-SOURCE_ROOT = MODEL_ROOT / "source" / "Chinese-CLIP"
+MODEL_MANIFEST_PATH = ROOT / "external_models" / "pretrained" / "chinese_clip_rn50" / "model_manifest.json"
 
-EXPECTED_CHECKPOINT_BYTES = 308_316_425
-EXPECTED_CHECKPOINT_SHA256 = "b196ee3ee528b70be1158ab1aafb1d2f1c801ad2d9ffb3bae31b0d305f82fc88"
-def load_cn_clip():
-    if SOURCE_ROOT.exists():
-        sys.path.insert(0, str(SOURCE_ROOT))
-        source = str(SOURCE_ROOT.relative_to(ROOT))
-    else:
-        source = "installed cn_clip package"
+
+def load_cn_clip(source_root: Path):
+    if not source_root.is_dir():
+        raise SystemExit(
+            f"Verified Chinese-CLIP source is missing: {source_root}. "
+            "Run scripts/download_chinese_clip_rn50.py first."
+        )
+    sys.path.insert(0, str(source_root))
 
     try:
         import cn_clip.clip as clip
@@ -39,7 +37,7 @@ def load_cn_clip():
             "dependencies in the project .venv before running this script."
         ) from error
 
-    print(f"Chinese-CLIP implementation: {source}")
+    print(f"Chinese-CLIP implementation: {source_root.relative_to(ROOT)}")
     return clip
 
 
@@ -51,22 +49,26 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def validate_checkpoint() -> str:
-    if not CHECKPOINT_PATH.is_file():
-        raise SystemExit(f"Chinese-CLIP checkpoint is missing: {CHECKPOINT_PATH}")
-    actual_bytes = CHECKPOINT_PATH.stat().st_size
-    if actual_bytes != EXPECTED_CHECKPOINT_BYTES:
+def validate_checkpoint(model_manifest: dict) -> tuple[Path, str]:
+    checkpoint = model_manifest["checkpoint"]
+    checkpoint_path = ROOT / checkpoint["path"]
+    if not checkpoint_path.is_file():
+        raise SystemExit(f"Chinese-CLIP checkpoint is missing: {checkpoint_path}")
+    actual_bytes = checkpoint_path.stat().st_size
+    expected_bytes = int(checkpoint["bytes"])
+    if actual_bytes != expected_bytes:
         raise SystemExit(
-            f"Chinese-CLIP checkpoint size mismatch: expected {EXPECTED_CHECKPOINT_BYTES}, "
+            f"Chinese-CLIP checkpoint size mismatch: expected {expected_bytes}, "
             f"found {actual_bytes}"
         )
-    actual_sha256 = sha256(CHECKPOINT_PATH)
-    if actual_sha256 != EXPECTED_CHECKPOINT_SHA256:
+    actual_sha256 = sha256(checkpoint_path)
+    expected_sha256 = checkpoint["sha256"]
+    if actual_sha256 != expected_sha256:
         raise SystemExit(
-            f"Chinese-CLIP checkpoint SHA-256 mismatch: expected {EXPECTED_CHECKPOINT_SHA256}, "
+            f"Chinese-CLIP checkpoint SHA-256 mismatch: expected {expected_sha256}, "
             f"found {actual_sha256}"
         )
-    return actual_sha256
+    return checkpoint_path, actual_sha256
 
 
 def image_views(image: Image.Image, exact_ios_views: bool) -> list[tuple[str, Image.Image]]:
@@ -115,6 +117,8 @@ def evaluate_mode(model, preprocess, clip, manifest: dict, exact_ios_views: bool
     top_k_hits = 0
     precision_gate_passes = 0
     false_positive_count = 0
+    expected_target_count = 0
+    expected_targets_passing = 0
 
     for query in manifest["queries"]:
         query_id = query["id"]
@@ -167,10 +171,17 @@ def evaluate_mode(model, preprocess, clip, manifest: dict, exact_ios_views: bool
         ]
         expected_passing = [candidate for candidate in passing if candidate["imageID"] in expected]
         false_positives = [candidate for candidate in passing if candidate["imageID"] not in expected]
-        precision_gate_pass = bool(expected_passing) and not false_positives
+        expected_coverage_pass = (
+            len(expected_passing) == len(expected)
+            if exact_ios_views
+            else bool(expected_passing)
+        )
+        precision_gate_pass = expected_coverage_pass and not false_positives
         if precision_gate_pass:
             precision_gate_passes += 1
         false_positive_count += len(false_positives)
+        expected_target_count += len(expected)
+        expected_targets_passing += len(expected_passing)
 
         query_results.append(
             {
@@ -197,9 +208,13 @@ def evaluate_mode(model, preprocess, clip, manifest: dict, exact_ios_views: bool
         "queryCount": query_count,
         "topKHits": top_k_hits,
         "precisionGatePasses": precision_gate_passes,
+        "expectedTargetCount": expected_target_count,
+        "expectedTargetsPassing": expected_targets_passing,
+        "requiresAllExpectedTargets": exact_ios_views,
         "falsePositiveCount": false_positive_count,
         "passed": top_k_hits == query_count
         and precision_gate_passes == query_count
+        and (not exact_ios_views or expected_targets_passing == expected_target_count)
         and false_positive_count == 0,
         "queries": query_results,
     }
@@ -222,12 +237,13 @@ def write_markdown(report: dict) -> None:
         "",
         "## 结果",
         "",
-        "| 模式 | Top-K | 高精度门限 | 已知误检 | 结论 |",
-        "|---|---:|---:|---:|---|",
+        "| 模式 | Top-K | 标注目标覆盖 | 高精度门限 | 已知误检 | 结论 |",
+        "|---|---:|---:|---:|---:|---|",
     ]
     for mode in report["modes"]:
         lines.append(
             f"| {mode['mode']} | {mode['topKHits']}/{mode['queryCount']} | "
+            f"{mode['expectedTargetsPassing']}/{mode['expectedTargetCount']} | "
             f"{mode['precisionGatePasses']}/{mode['queryCount']} | "
             f"{mode['falsePositiveCount']} | {'通过' if mode['passed'] else '失败'} |"
         )
@@ -267,13 +283,15 @@ def write_markdown(report: dict) -> None:
 
 
 def main() -> None:
-    checkpoint_sha256 = validate_checkpoint()
+    model_manifest = json.loads(MODEL_MANIFEST_PATH.read_text(encoding="utf-8"))
+    checkpoint_path, checkpoint_sha256 = validate_checkpoint(model_manifest)
+    source_root = ROOT / model_manifest["source"]["path"]
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
-    clip = load_cn_clip()
+    clip = load_cn_clip(source_root)
 
     from cn_clip.clip.utils import _MODEL_INFO, create_model, image_transform
 
-    checkpoint_payload = torch.load(CHECKPOINT_PATH, map_location="cpu", weights_only=False)
+    checkpoint_payload = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
     model = create_model(_MODEL_INFO["RN50"]["struct"], checkpoint_payload).float().eval()
     preprocess = image_transform(224)
 
@@ -286,8 +304,8 @@ def main() -> None:
         "model": "Chinese-CLIP RN50",
         "targetPrecision": "Core ML FP16",
         "checkpoint": {
-            "path": str(CHECKPOINT_PATH.relative_to(ROOT)),
-            "bytes": CHECKPOINT_PATH.stat().st_size,
+            "path": str(checkpoint_path.relative_to(ROOT)),
+            "bytes": checkpoint_path.stat().st_size,
             "sha256": checkpoint_sha256,
         },
         "dataset": {
@@ -308,6 +326,7 @@ def main() -> None:
         status = "PASS" if mode["passed"] else "FAIL"
         print(
             f"[{status}] {mode['mode']}: topK={mode['topKHits']}/{mode['queryCount']} "
+            f"targets={mode['expectedTargetsPassing']}/{mode['expectedTargetCount']} "
             f"precisionGate={mode['precisionGatePasses']}/{mode['queryCount']} "
             f"falsePositives={mode['falsePositiveCount']}"
         )

@@ -13,10 +13,10 @@
 
 ## 结果
 
-| 模式 | Top-K | 高精度门限 | 已知误检 | 结论 |
-|---|---:|---:|---:|---|
-| full_only | 6/6 | 6/6 | 0 | 通过 |
-| ios_exact_views | 6/6 | 6/6 | 0 | 通过 |
+| 模式 | Top-K | 标注目标覆盖 | 高精度门限 | 已知误检 | 结论 |
+|---|---:|---:|---:|---:|---|
+| full_only | 6/6 | 7/9 | 6/6 | 0 | 通过 |
+| ios_exact_views | 6/6 | 9/9 | 6/6 | 0 | 通过 |
 
 ## iOS 六视图明细
 
@@ -24,8 +24,8 @@
 |---|---|---|
 | 小猫图片 | cats (top-right, m=0.0498) | cats (top-right, m=0.0498), corgi (center, m=-0.0374), beach (top-right, m=-0.0433) |
 | 小狗图片 | corgi (full, m=0.0429) | corgi (full, m=0.0429), beach (center, m=-0.0497), cats (top-left, m=-0.0506) |
-| 风景图片 | moraine_lake (top-left, m=0.0473), beach (top-right, m=0.0123) | moraine_lake (top-left, m=0.0473), savanna (top-left, m=0.0161), beach (top-right, m=0.0123) |
-| 美女图片 | portrait_woman (top-left, m=0.0217) | portrait_woman (top-left, m=0.0217), woman_afro (bottom-left, m=-0.0097), savanna (top-right, m=-0.0121) |
+| 风景图片 | moraine_lake (full, m=0.0602), beach (top-right, m=0.0168) | moraine_lake (full, m=0.0602), savanna (center, m=0.0256), beach (top-right, m=0.0168) |
+| 美女图片 | portrait_woman (bottom-left, m=0.0741), woman_afro (bottom-left, m=0.0380) | portrait_woman (bottom-left, m=0.0741), woman_afro (bottom-left, m=0.0380), savanna (top-right, m=-0.0007) |
 | 截图 | game_screenshot (full, m=0.0725), semantic_search_ui (full, m=0.0344) | game_screenshot (full, m=0.0725), semantic_search_ui (full, m=0.0344), beach (full, m=-0.0023) |
 | 游戏截图 | game_screenshot (top-left, m=0.0358) | game_screenshot (top-left, m=0.0358), savanna (top-right, m=0.0063), beach (full, m=-0.0189) |
 
